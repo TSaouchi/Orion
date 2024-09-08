@@ -17,13 +17,15 @@ DEFAULT_SIMULATION_SETTINGS = {
     'tolerance': 1e-5,
     'max_iterations': 1000
 }
+DEFAULT_TIME_NAME = ['TimeValue']
+DEFAULT_COORDINATE_NAMES = ['CoordinateX','CoordinateY','CoordinateZ']
 
 DEFAULT_VAR_SYNONYMS = {
 
-            'TimeValues' : ['t', 'Temps', 'Time', 'time'],
-            'CoordinateX': ['X', 'x'],
-            'CoordinateY': ['Y', 'y'],
-            'CoordinateZ': ['Z', 'z', 'Axial_Displacement', 'Axial Displacement'],
+            DEFAULT_TIME_NAME[0] : ['t', 'Temps', 'Time', 'time'],
+            DEFAULT_COORDINATE_NAMES[0] : ['X', 'x'],
+            DEFAULT_COORDINATE_NAMES[1] : ['Y', 'y'],
+            DEFAULT_COORDINATE_NAMES[2] : ['Z', 'z', 'Axial_Displacement', 'Axial Displacement'],
 
             'VectorNormalX': ['normal_CoordinateX', 'nx'],
             'VectorNormalY': ['normal_CoordinateY', 'ny'],

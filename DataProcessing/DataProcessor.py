@@ -122,70 +122,57 @@ class Processor(SharedMethods):
                                                                     base[zone][instant][var].data)
         return pivot_base
 
-    @staticmethod
-    def compute_fft(input_signal, dt, decomposition_type="both", frequencies_band = (None, None)):
+    def fft(self, dt, decomposition_type="both", frequencies_band = (None, None), **kwargs):
         """
-        Compute the Fast Fourier Transform (FFT) of the input signal.
+        Compute the Fast Fourier Transform (FFT) of the input signal for each variable in the dataset.
 
-        :param input_signal: The signal to transform, which can be a Dask array or a NumPy array.
-        :type input_signal: da.Array or np.ndarray
         :param dt: The time interval between samples in the input signal.
         :type dt: float
-        :param decomposition_type: The type of decomposition to return. Options are "im/re" for real and imaginary parts, 
-                                    "mod/phi" for magnitude and phase, or "both" for all components. Default is "both".
+        :param decomposition_type: Specifies the type of decomposition to return. Options are:
+            - "im/re": Returns the real and imaginary components.
+            - "mod/phi": Returns the magnitude and phase components.
+            - "both": Returns both real/imaginary and magnitude/phase components (default).
         :type decomposition_type: str, optional
-        :param frequencies_band: A tuple or list specifying the frequency band to select from the FFT result. 
-                                  If None, no band filtering is applied. Default is (None, None).
+        :param frequencies_band: A tuple or list defining the frequency band to apply for filtering.
+            - If `None`, no frequency filtering is applied (default: (None, None)).
+            - Values must be in the form (min_freq, max_freq). Frequencies outside this range are excluded.
         :type frequencies_band: tuple or list of float, optional
-
-        :return: A dictionary containing the FFT result, which varies based on the `decomposition_type`:
+        :param kwargs: Additional arguments. This can include:
+            - `invariant_variables`: A list of variable names to exclude from FFT computation.
+            Default is set to Orion.DEFAULT_COORDINATE_NAMES + Orion.DEFAULT_TIME_NAME.
             
-            - If `decomposition_type` is "im/re":
+        :return: A dictionary-like object (fft_base) with the FFT results, varying by `decomposition_type`:
+            - For "im/re":
                 - **frequencies**: The positive frequencies corresponding to the FFT result.
-                - **real**: The real part of the FFT result.
-                - **imaginary**: The imaginary part of the FFT result.
-            - If `decomposition_type` is "mod/phi":
+                - **real**: The real part of the FFT result for each variable.
+                - **imaginary**: The imaginary part of the FFT result for each variable.
+            - For "mod/phi":
                 - **frequencies**: The positive frequencies corresponding to the FFT result.
-                - **magnitude**: The magnitude of the FFT result.
-                - **phase**: The phase of the FFT result.
-            - If `decomposition_type` is "both":
+                - **magnitude**: The magnitude of the FFT result for each variable.
+                - **phase**: The phase of the FFT result for each variable.
+            - For "both":
                 - **frequencies**: The positive frequencies corresponding to the FFT result.
-                - **real**: The real part of the FFT result.
-                - **imaginary**: The imaginary part of the FFT result.
-                - **magnitude**: The magnitude of the FFT result.
-                - **phase**: The phase of the FFT result.
-        :rtype: dict
+                - **real**: The real part of the FFT result for each variable.
+                - **imaginary**: The imaginary part of the FFT result for each variable.
+                - **magnitude**: The magnitude of the FFT result for each variable.
+                - **phase**: The phase of the FFT result for each variable.
+        :rtype: dict-like (fft_base)
 
-        :raises ValueError: If `frequencies_band` is not a tuple or list, or if it does not contain exactly two elements.
+        :raises ValueError: 
+            - If `frequencies_band` is not a tuple or list, or if it does not contain exactly two elements.
+            - If `decomposition_type` is not one of the accepted values ("im/re", "mod/phi", "both").
         :raises TypeError: If `frequencies_band` is not a tuple or list.
-        :raises ValueError: If `decomposition_type` is not one of the accepted values ("im/re", "mod/phi", "both").
 
         .. note::
-
-            - The FFT result is computed using Dask, allowing for parallel and out-of-core computations.
+            - This function leverages Dask for parallel and out-of-core computation to handle large datasets.
             - Only positive frequencies are considered due to the symmetry of the FFT.
-            - The `mask_band` method of the `Processor` class is used to filter the frequency band if specified.
-        """
+            - The `mask_band` method is used to filter out frequencies outside the specified `frequencies_band`.
+            - `fft_base` contains FFT results for each variable that is not listed in `invariant_variables`.
+            """
+        invariant_variables = kwargs.get("invariant_variables", 
+                                         Orion.DEFAULT_COORDINATE_NAMES + 
+                                         Orion.DEFAULT_TIME_NAME)
         
-        # Check if the input signal is a Dask array, if not, convert it
-        if not isinstance(input_signal, da.Array):
-            input_signal = da.from_array(input_signal, chunks=(len(input_signal),))  # Convert to Dask array with a single chunk
-
-        # Check if the Dask array has a single chunk along the axis
-        if input_signal.chunks[0][0] != len(input_signal):
-            # Rechunk to a single chunk along the axis
-            input_signal = input_signal.rechunk((len(input_signal),))
-
-        # Compute the FFT using Dask
-        fft_result_dask = da.fft.fft(input_signal, axis=0)
-
-        # Compute the frequencies using Dask
-        fft_freqs_dask = da.fft.fftfreq(len(input_signal), d=dt)
-
-        # Only take the positive frequencies (since FFT is symmetric)
-        positive_freqs_dask = fft_freqs_dask[:len(fft_freqs_dask)//2]
-        positive_fft_dask = fft_result_dask[:len(fft_result_dask)//2]
-
         if np.any(frequencies_band):
             if not isinstance(frequencies_band, (tuple, list)):
                 print("Frequencies band type can be tuple or list.")
@@ -195,47 +182,56 @@ class Processor(SharedMethods):
                 raise TypeError("Frequencies band must be a tuple or list.")
             
             if len(frequencies_band) != 2:
-                raise ValueError("Frequencies band must contain exactly two elements (min_band, max_band).")
-            
-            mask = Processor.mask_band(positive_freqs_dask, frequencies_band)
-            
-            positive_freqs_dask = positive_freqs_dask[mask.compute()]
-            positive_fft_dask = positive_fft_dask[mask.compute()]
+                frequencies_band = [np.min(frequencies_band), np.max(frequencies_band)]
         
-        if decomposition_type == "im/re":
-            # Return real and imaginary parts
-            output_signal_dict = {
-                "frequencies": positive_freqs_dask,
-                "real": np.real(positive_fft_dask),
-                "imaginary": np.imag(positive_fft_dask)
-            }
-
-        elif decomposition_type == "mod/phi":
-            # Return magnitude and phase
-            magnitude_dask = da.abs(positive_fft_dask)
-            phase_dask = da.angle(positive_fft_dask)
-            output_signal_dict = {
-                "frequencies": positive_freqs_dask,
-                "magnitude": magnitude_dask,
-                "phase": phase_dask
-            }
-
-        elif decomposition_type == "both":
-            # Return frequencies, real, imaginary, magnitude, and phase
-            magnitude_dask = da.abs(positive_fft_dask)
-            phase_dask = da.angle(positive_fft_dask)
-            output_signal_dict = {
-                "frequencies": positive_freqs_dask,
-                "real": np.real(positive_fft_dask),
-                "imaginary": np.imag(positive_fft_dask),
-                "magnitude": magnitude_dask,
-                "phase": phase_dask
-            }
-
-        else:
+        if decomposition_type not in ["im/re", "mod/phi", "both"]:
             raise ValueError("Invalid decomposition_type. Choose from 'im/re', 'mod/phi', or 'both'.")
+                
+        fft_base = Orion.Base()
+        fft_base.add_zone(list(self.base.keys()))
+        for ninstant, (zone, instant) in enumerate(self.base.items()):
+            fft_base[zone].add_instant(instant)
+            for variable, value in self.base[zone][instant].items():
+                if variable not in invariant_variables:
+                    # Compute the FFT using Dask
+                    fft_value = da.fft.fft(value, axis=0)
+                    fft_freqs = da.fft.fftfreq(len(value), d=dt)
+                    # Only take the positive frequencies (since FFT is symmetric)
+                    if np.any(frequencies_band):
+                        mask = self.mask_band(fft_freqs, frequencies_band)
+                        fft_value = fft_value[:len(fft_value)//2][mask.compute()]
+                        fft_freqs = fft_freqs[:len(fft_freqs)//2][mask.compute()]
+                    else:
+                        fft_value = fft_value[:len(fft_value)//2]
+                        fft_freqs = fft_freqs[:len(fft_freqs)//2]
+                    
+                    if ninstant == 0:
+                        fft_base[zone][instant].add_variable('Frequency', fft_freqs)
+                    
+                    if decomposition_type in ["im/re", "both"]:
+                        fft_base[zone][instant].add_variable(f"{variable}_real", 
+                                                             np.real(fft_value))
+                        fft_base[zone][instant].add_variable(f"{variable}_img", 
+                                                             np.imag(fft_value))
+                    
+                    if decomposition_type in ["mod/phi", "both"]:
+                        fft_base[zone][instant].add_variable(f"{variable}_mag", 
+                                                             da.abs(fft_value))
+                        fft_base[zone][instant].add_variable(f"{variable}_phase", 
+                                                             da.angle(fft_value))
 
-        return output_signal_dict
+        return fft_base
+    
+    def __is_dask_array(self, input):
+        if not isinstance(input, da.Array):
+            return da.from_array(input, chunks=(len(input),))
+        return input
+    
+    def __rechunk_array(self, input):
+        input = self.__is_dask_array(input)
+        if input.chunks[0][0] != len(input):
+            return input.rechunk((len(input),))
+        return input
 
     @staticmethod
     def filter(input_signal, config=None):

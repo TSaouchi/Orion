@@ -1,4 +1,5 @@
 import numpy as np
+import re
 import dask.array as da
 from typing import Union, Generator, Dict, List, Any, Tuple
 from concurrent.futures import ThreadPoolExecutor
@@ -76,9 +77,14 @@ class Instants(CustomAttributes):
             exec(expression, globals(), locals())
             self.add_variable(variable_name, locals()[variable_name])
             self[variable_name].compute()
+    
+    def items(self):
+        for variable_name, variable_obj in self.variables.items():
+            yield (variable_name, variable_obj.data)
         
     def keys(self):
         return self.variables.keys()
+    
 
 class Zones(CustomAttributes):
     def __init__(self):
@@ -118,7 +124,7 @@ class Zones(CustomAttributes):
             return list(self.instants.values())[key]
         return self.instants[key]
     
-    def items(self) -> Generator[Tuple[str, str], None, None]:
+    def items(self):
         for instant_name, instant_obj in self.instants.items():
             for var_name in instant_obj.keys():
                 yield (instant_name, var_name)
@@ -227,7 +233,7 @@ class Base(CustomAttributes):
 
         variables_used = set()
         for var in variables_in_expression:
-            if var in operation:
+            if bool(re.search(rf'\b{re.escape(var)}\b', operation)):
                 variables_used.add(var)
 
         # Function to evaluate and add the computed variable
@@ -257,7 +263,7 @@ class Base(CustomAttributes):
                         if all(var in instant.variables for var in variables_used):
                             # Replace variables in the operation with their corresponding data
                             local_operation = operation
-                            for var in instant.variables.keys():
+                            for var in variables_used:
                                 local_operation = local_operation.replace(var, f'instant.variables["{var}"].data')
 
                             futures.append(

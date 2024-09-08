@@ -44,7 +44,7 @@ if __name__ == "__main__":
                                   variables = cases["Variables"][nzone],
                                   zone_name = [zone])
             
-            base_tmp.compute("VelocityZ = np.diff(CoordinateZ)/(TimeValues[1] - TimeValues[0])")
+            base_tmp.compute("VelocityZ = np.diff(CoordinateZ)/(TimeValue[1] - TimeValue[0])")
             base.append(base_tmp)
             del base_tmp
         else:
@@ -53,92 +53,62 @@ if __name__ == "__main__":
                         variables = cases["Variables"][nzone],
                         zone_name = [zone])
                 
-            base_tmp.compute("VelocityZ = np.diff(CoordinateZ)/(TimeValues[1] - TimeValues[0])")
+            base_tmp.compute("VelocityZ = np.diff(CoordinateZ)/(TimeValue[1] - TimeValue[0])")
             base.append(base_tmp)
             del base_tmp
         
     # ============================= Data manipulation ==========================
     base = Processor(base).fusion()
+    fft_base = Processor(base).fft(dt = 1e-2)
     
-    def plot_with_bokeh(plot_dictionary, output_path, auto_open=False):
-    # Set output HTML file
-    output_file(output_path)
+    import numpy as np
+    import matplotlib.pyplot as plt
 
-    # Get axis titles
-    x_axis_title = list(plot_dictionary.keys())[0]
-    y_axis_title = list(plot_dictionary.keys())[1]
+    # Sample rate and duration
+    Fs = 500  # Sampling frequency (Hz)
+    T = 1/Fs  # Sampling interval
+    t = np.arange(0, 1, T)  # Time vector (1 second duration)
 
-    x_axis = plot_dictionary[x_axis_title]
-    y_axis = plot_dictionary[y_axis_title]
+    # Create a signal with two frequencies: 50 Hz and 120 Hz
+    f1 = 50  # Frequency of the first sine wave
+    f2 = 120  # Frequency of the second sine wave
+    signal = np.sin(2 * np.pi * f1 * t) + 0.5 * np.sin(2 * np.pi * f2 * t)
 
-    # Create a new figure
-    p = figure(title="2D Plot", x_axis_label=x_axis_title, y_axis_label=y_axis_title)
+    # Compute the FFT
+    fft_signal = np.fft.fft(signal)
+    N = len(signal)  # Number of samples
+    fft_signal = fft_signal[:N // 2]  # Take the positive frequencies
+    frequencies = np.fft.fftfreq(N, T)[:N // 2]  # Corresponding frequencies
 
-    # Create a list to hold legend items
-    legend_items = []
+    # Compute the magnitude of the FFT
+    magnitude = np.abs(fft_signal)
 
-    # Plot data based on mode (lines, markers, or both)
-    for n, (x, y) in enumerate(zip(x_axis['values'], y_axis['values'])):
-        mode = x_axis.get('markers', ['markers'])[n]
-        legend_label = x_axis['legend'][n] if 'legend' in x_axis else None
-        source = ColumnDataSource(data=dict(x=x, y=y))
-        
-        if mode == 'lines':
-            line_renderer = p.line('x', 'y', source=source, line_width=x_axis['sizes'][n] if 'sizes' in x_axis else 2)
-            legend_items.append((legend_label, [line_renderer]))
-        
-        elif mode == 'markers':
-            marker_renderer = p.circle('x', 'y', source=source, size=x_axis['sizes'][n] if 'sizes' in x_axis else 10)
-            legend_items.append((legend_label, [marker_renderer]))
-        
-        else:
-            line_renderer = p.line('x', 'y', source=source, line_width=x_axis['sizes'][n] if 'sizes' in x_axis else 2)
-            marker_renderer = p.circle('x', 'y', source=source, size=x_axis['sizes'][n] if 'sizes' in x_axis else 10)
-            legend_items.append((legend_label, [line_renderer, marker_renderer]))
+    # Plot the time-domain signal
+    plt.figure(figsize=(12, 6))
 
-    # Add legends to the plot
-    if legend_items:
-        legend = Legend(items=legend_items)
-        p.add_layout(legend, 'right')
-        p.legend.click_policy="hide"
+    plt.subplot(3, 1, 1)
+    plt.plot(t, signal)
+    plt.title('Time-Domain Signal')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Amplitude')
 
-    # Save and optionally show the plot
-    save(p)
-    if auto_open:
-        show(p)
+    # Plot the frequency-domain signal (FFT)
+    plt.subplot(3, 1, 2)
+    plt.plot(frequencies, magnitude)
+    plt.title('Frequency-Domain (FFT)')
+    plt.xlabel('Frequency [Hz]')
+    plt.ylabel('Magnitude')
 
+    base_tst = Orion.Base()
+    base_tst.init(['toto'], ['lala'])
+    base_tst[0][0].add_variable('bernard', signal)
+    base_tst_fft = Processor(base_tst).fft(dt = t[1] - t[0])
+    # Plot the frequency-domain signal (FFT)
+    plt.subplot(3, 1, 3)
+    plt.plot(base_tst_fft[0][0]['Frequency'].data, base_tst_fft[0][0]['bernard_mag'].data)
+    plt.title('Frequency-Domain (FFT)')
+    plt.xlabel('Frequency [Hz]')
+    plt.ylabel('Magnitude')
 
-plot_with_bokeh(plot_dictionary, "output_plot.html", auto_open=True)
-
-    # Function to write the data in column format to a .dat file
-def write_dat_file_in_columns(base, file_path):
-    for instant, file_paths in zip(base[0].keys(), file_path):
-        variables = base[0][instant].keys()
-        
-        # Ensure all arrays have the same length, pad with NaNs if necessary
-        max_length = max(len(base[0][instant][v].data) for v in variables)
-        column_data = []
-
-        for var in variables:
-            var = base[0][instant][var].data.compute()
-            if len(var) < max_length:
-                # Padding shorter arrays with NaNs
-                padded_var = np.pad(var, (0, max_length - len(var)), constant_values=np.nan)
-                column_data.append(padded_var)
-            else:
-                column_data.append(var)
-        
-        # Stack the arrays column-wise
-        stacked_data = np.column_stack(column_data)
-        
-        # Write to .dat file
-        with open(file_paths, 'w') as file:
-            # Write the header with variable names
-            header = "\t".join(variables)
-            file.write(header + "\n")
-            
-            # Write the data row by row
-            np.savetxt(file, stacked_data, delimiter="\t")
-
-# Call the function
-write_dat_file_in_columns(base, output_file)
+    plt.tight_layout()
+    plt.show()
