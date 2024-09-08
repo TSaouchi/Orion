@@ -221,61 +221,58 @@ class Processor(SharedMethods):
                                                              da.angle(fft_value))
 
         return fft_base
-    
-    def __is_dask_array(self, input):
-        if not isinstance(input, da.Array):
-            return da.from_array(input, chunks=(len(input),))
-        return input
-    
-    def __rechunk_array(self, input):
-        input = self.__is_dask_array(input)
-        if input.chunks[0][0] != len(input):
-            return input.rechunk((len(input),))
-        return input
 
-    @staticmethod
-    def filter(input_signal, config=None):
+    def filter(self, **kwargs):
         """
-        Apply one or more filters to the input signal based on the provided configuration.
+        Apply a digital filter to the data using various filter types and configurations.
 
-        :param input_signal: The signal to be filtered.
-        :type input_signal: array-like
-
-        :param config: A dictionary containing the filter configuration. Possible keys include:
+        :param filter_type: The type of filter to apply. Options include:
+            - 'butterworth': Butterworth filter.
+            - 'cheby1': Chebyshev Type I filter.
+            - 'cheby2': Chebyshev Type II filter.
+            - 'elliptic': Elliptic filter.
+            - 'bessel': Bessel filter.
+        Default is 'butterworth'.
+        :type filter_type: str, optional
         
-            - **filter_type**: The type of filter to apply. Can be a single type or a list of types. Options include 'butterworth', 'cheby1', 'cheby2', 'elliptic', 'bessel'. Default is 'butterworth'.
-            - **cutoff**: The cutoff frequency or frequencies for the filter. For 'band' or 'stop' types, this should be a list or tuple of two values. For other types, it should be a single value. Default is 10.
-            - **sampling_rate**: The sampling rate of the input signal. Default is `len(input_signal) / 10.0`.
-            - **order**: The order of the filter. Default is 5.
-            - **btype**: The type of filter response. Options are 'low', 'high', 'band', or 'stop'. Default is 'low'.
-        :type config: dict, optional
+        :param cutoff: The cutoff frequency or frequencies for the filter:
+            - For 'low' and 'high' filters, a single cutoff frequency.
+            - For 'band' and 'stop' filters, a list or tuple of two cutoff frequencies.
+        If `None`, no filtering is applied. Default is `None`.
+        :type cutoff: float, list or tuple, optional
+        
+        :param sampling_rate: The rate at which samples were taken (samples per second). Default is 1000 Hz.
+        :type sampling_rate: float, optional
+        
+        :param order: The order of the filter. Higher values mean a steeper roll-off. Default is 5.
+        :type order: int, optional
+        
+        :param btype: The type of filter to design:
+            - 'low': Low-pass filter. Allows frequencies below the cutoff to pass through.
+            - 'high': High-pass filter. Allows frequencies above the cutoff to pass through.
+            - 'band': Band-pass filter. Allows frequencies within the cutoff range to pass through.
+            - 'stop': Band-stop (notch) filter. Blocks frequencies within the cutoff range.
+        Default is 'low'.
+        :type btype: str, optional
 
-        :return: The filtered signal or a dictionary of filtered signals if multiple filter types are used.
-        :rtype: array-like or dict
+        :return: The modified data with the filter applied.
+        :rtype: dict-like (self.base)
 
-        :raises ValueError: If the configuration parameters are invalid, such as incorrect cutoff frequencies or unsupported filter types.
-
+        :raises ValueError: 
+            - If `cutoff` is not appropriate for the specified `btype`.
+            - If `cutoff` frequencies exceed the Nyquist frequency (half the sampling rate).
+            - If an unsupported `filter_type` is specified.
+        
         .. note::
-
-            - The function supports various filter types including Butterworth, Chebyshev (both types), Elliptic, and Bessel.
-            - For band or stop filters, ensure that `cutoff` is a list or tuple with two values.
-            - The Nyquist frequency is used to normalize cutoff frequencies. Ensure that cutoff frequencies are less than the Nyquist frequency.
-            - If only one filter type is provided, the function returns the filtered signal directly. If multiple filter types are provided, it returns a dictionary where keys are filter types and values are the corresponding filtered signals.
+            - The Nyquist frequency is half the sampling rate, and it is used to normalize the cutoff frequency.
+            - The `filtfilt` function is used for zero-phase filtering, ensuring no phase distortion.
         """
 
-
-        if config is None:
-            config = {}
-
-        filter_types = config.get('filter_type', 'butterworth')
-        cutoff = config.get('cutoff', 10)
-        sampling_rate = config.get('sampling_rate', len(input_signal) / 10.0)
-        order = config.get('order', 5)
-        btype = config.get('btype', 'low')
-
-        # Ensure filter_types is a list for consistent processing
-        if isinstance(filter_types, str):
-            filter_types = [filter_types]
+        filter_type = kwargs.get('filter_type', 'butterworth')
+        cutoff = kwargs.get('cutoff', None)
+        sampling_rate = kwargs.get('sampling_rate', 1e3)
+        order = kwargs.get('order', 5)
+        btype = kwargs.get('btype', 'low')
 
         # Ensure cutoff is a list if btype is 'band' or 'stop'
         if btype in ['band', 'stop'] and not isinstance(cutoff, (list, tuple)):
@@ -292,32 +289,38 @@ class Processor(SharedMethods):
         if (btype in ['band', 'stop'] and (normal_cutoff[0] >= 1 or normal_cutoff[1] >= 1)) or (btype not in ['band', 'stop'] and normal_cutoff >= 1):
             raise ValueError("Cutoff frequency must be less than the Nyquist frequency.")
 
-        # Dictionary to hold the output signals
-        output_signals = {}
-
-        # Iterate over each filter type
-        for filter_type in filter_types:
-            if filter_type == 'butterworth':
-                b, a = butter(order, normal_cutoff, btype=btype, analog=False)
-            elif filter_type == 'cheby1':
-                b, a = cheby1(order, 0.5, normal_cutoff, btype=btype, analog=False)
-            elif filter_type == 'cheby2':
-                b, a = cheby2(order, 20, normal_cutoff, btype=btype, analog=False)
-            elif filter_type == 'elliptic':
-                b, a = ellip(order, 0.5, 20, normal_cutoff, btype=btype, analog=False)
-            elif filter_type == 'bessel':
-                b, a = bessel(order, normal_cutoff, btype=btype, analog=False, norm='phase')
-            else:
-                raise ValueError(f"Unsupported filter type: {filter_type}")
-
-            # Apply the filter and store the result
-            output_signals[filter_type] = filtfilt(b, a, input_signal)
-
-        # Return a single output if only one filter type was provided, otherwise return the dictionary
-        if len(output_signals) == 1:
-            return list(output_signals.values())[0]
+        if filter_type == 'butterworth':
+            b, a = butter(order, normal_cutoff, btype=btype, analog=False)
+        elif filter_type == 'cheby1':
+            b, a = cheby1(order, 0.5, normal_cutoff, btype=btype, analog=False)
+        elif filter_type == 'cheby2':
+            b, a = cheby2(order, 20, normal_cutoff, btype=btype, analog=False)
+        elif filter_type == 'elliptic':
+            b, a = ellip(order, 0.5, 20, normal_cutoff, btype=btype, analog=False)
+        elif filter_type == 'bessel':
+            b, a = bessel(order, normal_cutoff, btype=btype, analog=False, norm='phase')
         else:
-            return output_signals
+            raise ValueError(f"Unsupported filter type: {filter_type}")
+
+        for zone, instant in self.base.items():
+            for variable_name, variable_obj in self.base[zone][instant].items():
+                self.base[zone][instant].add_variable(variable_name, 
+                                                      filtfilt(b, a, 
+                                                               variable_obj)
+                                                      )
+                    
+        return self.base
+    
+    def __is_dask_array(self, input):
+        if not isinstance(input, da.Array):
+            return da.from_array(input, chunks=(len(input),))
+        return input
+    
+    def __rechunk_array(self, input):
+        input = self.__is_dask_array(input)
+        if input.chunks[0][0] != len(input):
+            return input.rechunk((len(input),))
+        return input
 
     @staticmethod
     def compute_transfer_function(input_signal, output_signal, time, order = (1, 2),

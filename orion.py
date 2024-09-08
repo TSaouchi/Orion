@@ -86,14 +86,14 @@ if __name__ == "__main__":
     # Plot the time-domain signal
     plt.figure(figsize=(12, 6))
 
-    plt.subplot(3, 1, 1)
+    plt.subplot(4, 1, 1)
     plt.plot(t, signal)
     plt.title('Time-Domain Signal')
     plt.xlabel('Time [s]')
     plt.ylabel('Amplitude')
 
     # Plot the frequency-domain signal (FFT)
-    plt.subplot(3, 1, 2)
+    plt.subplot(4, 1, 2)
     plt.plot(frequencies, magnitude)
     plt.title('Frequency-Domain (FFT)')
     plt.xlabel('Frequency [Hz]')
@@ -104,11 +104,31 @@ if __name__ == "__main__":
     base_tst[0][0].add_variable('bernard', signal)
     base_tst_fft = Processor(base_tst).fft(dt = t[1] - t[0])
     # Plot the frequency-domain signal (FFT)
-    plt.subplot(3, 1, 3)
+    plt.subplot(4, 1, 3)
     plt.plot(base_tst_fft[0][0]['Frequency'].data, base_tst_fft[0][0]['bernard_mag'].data)
+    plt.title('Frequency-Domain (FFT)')
+    plt.xlabel('Frequency [Hz]')
+    plt.ylabel('Magnitude')
+
+    base_tst = Orion.Base()
+    base_tst.init(['toto'], ['lala'])
+    base_tst[0][0].add_variable('t', t)
+    base_tst[0][0].add_variable('bernard', signal)
+    # Plot the frequency-domain signal (FFT)
+    plt.subplot(4, 1, 4)
+    plt.plot(base_tst[0][0]['t'].data, base_tst[0][0]['bernard'].data)
+    configuration = {
+        'sampling_rate' : N,
+        'cutoff' : 100,
+        'btype': 'low'
+    }
+    Processor(base_tst).filter(**configuration)
+    plt.plot(base_tst[0][0]['t'].data, base_tst[0][0]['bernard'].data)
     plt.title('Frequency-Domain (FFT)')
     plt.xlabel('Frequency [Hz]')
     plt.ylabel('Magnitude')
 
     plt.tight_layout()
     plt.show()
+
+
