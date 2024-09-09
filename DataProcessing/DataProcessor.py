@@ -23,7 +23,7 @@ import h5py as hdf
 import ast
 
 # Signal processing
-from scipy.signal import butter, cheby1, cheby2, ellip, bessel, filtfilt
+from scipy.signal import butter, cheby1, cheby2, ellip, bessel, filtfilt, savgol_filter
 from scipy import signal
 from scipy.optimize import minimize
 
@@ -322,7 +322,52 @@ class Processor(SharedMethods):
                                                         variable_obj[::factor])
         
         return reduce_base
+    
+    def smooth(self, window = None, order = None, **kwargs):
         
+        if window is None:
+            window = [5, 5, 5]
+        
+        if order is None:
+            order = 1
+        
+        invariant_variables = kwargs.get("invariant_variables",
+                                         Orion.DEFAULT_TIME_NAME)
+        
+        first_window_size, middle_window_size, last_window_size = window
+            
+        smooth_base = Orion.Base()
+        smooth_base.add_zone(list(self.base.keys()))
+        for zone, instant in self.base.items():
+            smooth_base[zone].add_instant(instant)
+            for variable_name, variable_obj in list(self.base[zone][instant].items()):
+                if variable_name not in invariant_variables:
+                    smoothed_variable = self.smoothing(variable_obj, 
+                                                       order, 
+                                                       *window)
+                    smooth_base[zone][instant].add_variable(f"{variable_name}", 
+                                                            smoothed_variable)
+                else:
+                    smooth_base[zone][instant].add_variable(f"{variable_name}", 
+                                                            variable_obj)
+                    
+        return smooth_base
+    
+    @staticmethod
+    def smoothing(input_signal, polyorder, first_window_size, middle_window_size, last_window_size):
+        # Apply Savitzky-Golay filter to different parts of the signal
+        # First part
+        y_smooth_first = savgol_filter(input_signal[:first_window_size], first_window_size, polyorder)
+        # Middle part
+        y_smooth_middle = savgol_filter(input_signal[first_window_size:-last_window_size], middle_window_size, polyorder)
+        # Last part
+        y_smooth_last = savgol_filter(input_signal[-last_window_size:], last_window_size, polyorder)
+        
+        # Concatenate the results
+        output_signal_smooth = np.concatenate([y_smooth_first, y_smooth_middle, y_smooth_last])
+        
+        return output_signal_smooth
+    
     def __is_dask_array(self, input):
         if not isinstance(input, da.Array):
             return da.from_array(input, chunks=(len(input),))

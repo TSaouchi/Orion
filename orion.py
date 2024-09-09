@@ -57,12 +57,11 @@ if __name__ == "__main__":
             base.append(base_tmp)
 
     base = Processor(base).fusion()
-        
     speed = ["amp001p2_spd0100","amp002p4_spd0200","amp006p0_spd0500","amp012p1_spd1000","amp018p1_spd1500"]
     for zone in base.keys():
         base[zone].rename_instant(list(base[zone].keys()), speed)
     # # ============================= Data manipulation ==========================
-    # Signal BMW vs BWI    
+    #NOTE - Signal BMW vs BWI
     Axis_x = []
     Axis_y= []
     legend = []
@@ -124,7 +123,9 @@ if __name__ == "__main__":
     Ploter = Orion.Plot
     Ploter(output_path, dir_name_tag = r"Reporting\Input", files_name_tag = f"Frequency_domain_Input_BMWvsBWI_PID-Sinus").cartesian_plot_to_html(plot_dictionary)
     
-    # Force over Displacement
+    # #FIXME -  Smoothing
+    # base = Processor(base).smooth(window=[2, 100, 2], order=1)
+    #NOTE - Force over Displacement
     Axis_x = []
     Axis_y= []
     legend = []
@@ -150,9 +151,36 @@ if __name__ == "__main__":
     }
     output_path = r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal"
     Ploter = Orion.Plot
-    Ploter(output_path, dir_name_tag = r"Reporting\Output", files_name_tag = f"Frequency_domain_Output_F-S_BWI_PID-Sinus").cartesian_plot_to_html(plot_dictionary)
+    Ploter(output_path, dir_name_tag = r"Reporting\Output", files_name_tag = f"Frequency_domain_Output_Magnitude-F-S_BWI_PID-Sinus").cartesian_plot_to_html(plot_dictionary)
     
-    # Force over Velocity
+    Axis_x = []
+    Axis_y= []
+    legend = []
+    
+    for zone, instant in base.items():
+        if zone != 'BMW':
+            Axis_x.append(base[zone][instant]['Frequency'].compute())
+            Axis_y.append((180/np.pi) * (base[zone][instant]['ForceZ_phase'].compute() - base[zone][instant]['CoordinateZ_phase'].compute()))
+            legend.append(f"{zone}_{instant}")
+    
+    n = len(legend)
+        
+    plot_dictionary = {
+        'Frequency (Hz)' : {
+            'values' : Axis_x,
+            'markers' : n*['markers'],
+            'legend' : legend,
+            'sizes' : n*[2]
+        },
+        'FFT(Force)/FFT(Displacement) (N/mm)' : {
+            'values' : Axis_y
+        },
+    }
+    output_path = r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal"
+    Ploter = Orion.Plot
+    Ploter(output_path, dir_name_tag = r"Reporting\Output", files_name_tag = f"Frequency_domain_Output_Phase-F-S_BWI_PID-Sinus").polar_plot_to_html(plot_dictionary)
+    
+    #NOTE - Force over Velocity
     Axis_x = []
     Axis_y= []
     legend = []
@@ -178,5 +206,31 @@ if __name__ == "__main__":
     }
     output_path = r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal"
     Ploter = Orion.Plot
-    Ploter(output_path, dir_name_tag = r"Reporting\Output", files_name_tag = f"Frequency_domain_Output_F-V_BWI_PID-Sinus").cartesian_plot_to_html(plot_dictionary)
+    Ploter(output_path, dir_name_tag = r"Reporting\Output", files_name_tag = f"Frequency_domain_Output_Magnitude-F-V_BWI_PID-Sinus").cartesian_plot_to_html(plot_dictionary)
     
+    Axis_x = []
+    Axis_y= []
+    legend = []
+    
+    for zone, instant in base.items():
+        if zone != 'BMW':
+            Axis_x.append(base[zone][instant]['Frequency'].compute())
+            Axis_y.append((180/np.pi) * (base[zone][instant]['ForceZ_phase'].compute() - base[zone][instant]['VelocityZ_phase'].compute()))
+            legend.append(f"{zone}_{instant}")
+    
+    n = len(legend)
+        
+    plot_dictionary = {
+        'Frequency (Hz)' : {
+            'values' : Axis_x,
+            'markers' : n*['markers'],
+            'legend' : legend,
+            'sizes' : n*[2]
+        },
+        'FFT(Force)/FFT(Displacement) (N/mm)' : {
+            'values' : Axis_y
+        },
+    }
+    output_path = r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal"
+    Ploter = Orion.Plot
+    Ploter(output_path, dir_name_tag = r"Reporting\Output", files_name_tag = f"Frequency_domain_Output_Phase-F-V_BWI_PID-Sinus").polar_plot_to_html(plot_dictionary)
