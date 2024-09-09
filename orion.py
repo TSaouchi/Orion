@@ -145,7 +145,7 @@ if __name__ == "__main__":
             'legend' : legend,
             'sizes' : n*[2]
         },
-        'FFT(Force)/FFT(Displacement) (N/mm)' : {
+        'Frequency Response Function |H(f)| (N/mm)' : {
             'values' : Axis_y
         },
     }
@@ -172,7 +172,7 @@ if __name__ == "__main__":
             'legend' : legend,
             'sizes' : n*[2]
         },
-        'FFT(Force)/FFT(Displacement) (N/mm)' : {
+        'Frequency Response Function arg(H(f)) (°)' : {
             'values' : Axis_y
         },
     }
@@ -200,7 +200,7 @@ if __name__ == "__main__":
             'legend' : legend,
             'sizes' : n*[2]
         },
-        'FFT(Force)/FFT(Velocity) (N.s/mm)' : {
+        'Impedande |Z(f)| (N.s/mm)' : {
             'values' : Axis_y
         },
     }
@@ -227,7 +227,7 @@ if __name__ == "__main__":
             'legend' : legend,
             'sizes' : n*[2]
         },
-        'FFT(Force)/FFT(Displacement) (N/mm)' : {
+        'Impedande arg(Z(f)) (°)' : {
             'values' : Axis_y
         },
     }
