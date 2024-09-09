@@ -69,9 +69,9 @@ if __name__ == "__main__":
     for zone, instant in base.items():
         Axis_x.append(base[zone][instant]['TimeValue'].compute() - base[zone][instant]['TimeValue'].compute().min())
         if zone == 'BMW':
-            Axis_y.append(base[zone][instant]['CoordinateZ'].compute()/base[zone][instant]['CoordinateZ'].compute().max())
+            Axis_y.append(1e3*base[zone][instant]['CoordinateZ'].compute())
         else:
-            Axis_y.append(base[zone][instant]['CoordinateZ'].compute()/(1e3*base["BMW"][instant]['CoordinateZ'].compute().max()))
+            Axis_y.append(base[zone][instant]['CoordinateZ'].compute())
         legend.append(f"{zone}_{instant}")
     
     n = len(legend)
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     plot_dictionary = {
         'Time (s) - Shifted to start at zero' : {
             'values' : Axis_x,
-            'markers' : n*['markers'],
+            'markers' : n*['lines'],
             'legend' : legend,
             'sizes' : n*[2]
         },
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     
     # FFT BMW vs BWI
     # Signal BMW vs BWI
-    base = Processor(base).fft(decomposition_type='mod/phi', frequencies_band = (None, 35))
+    base = Processor(base).fft(decomposition_type='complex', frequencies_band = (None, 35))
     Axis_x = []
     Axis_y= []
     legend = []
@@ -101,9 +101,9 @@ if __name__ == "__main__":
     for zone, instant in base.items():
         Axis_x.append(base[zone][instant]['Frequency'].compute())
         if zone == 'BMW':
-            Axis_y.append(1e3*base[zone][instant]['CoordinateZ_mag'].compute())
+            Axis_y.append(1e3*np.abs(base[zone][instant]['CoordinateZ_complex'].compute()))
         else:
-            Axis_y.append(base[zone][instant]['CoordinateZ_mag'].compute())
+            Axis_y.append(np.abs(base[zone][instant]['CoordinateZ_complex'].compute()))
         legend.append(f"{zone}_{instant}")
     
     n = len(legend)
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     plot_dictionary = {
         'Frequency (Hz)' : {
             'values' : Axis_x,
-            'markers' : n*['markers+lines'],
+            'markers' : n*['lines'],
             'legend' : legend,
             'sizes' : n*[2]
         },
@@ -121,7 +121,36 @@ if __name__ == "__main__":
     }
     output_path = r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal"
     Ploter = Orion.Plot
-    Ploter(output_path, dir_name_tag = r"Reporting\Input", files_name_tag = f"Frequency_domain_Input_BMWvsBWI_PID-Sinus").cartesian_plot_to_html(plot_dictionary)
+    Ploter(output_path, dir_name_tag = r"Reporting\Input", files_name_tag = f"Frequency_domain_Input_Magnitude_BMWvsBWI_PID-Sinus").cartesian_plot_to_html(plot_dictionary)
+    
+    Axis_x = []
+    Axis_y= []
+    legend = []
+    
+    for zone, instant in base.items():
+        Axis_x.append(base[zone][instant]['Frequency'].compute())
+        if zone == 'BMW':
+            Axis_y.append(np.degrees(np.angle(base[zone][instant]['CoordinateZ_complex'].compute())))
+        else:
+            Axis_y.append(np.degrees(np.angle(base[zone][instant]['CoordinateZ_complex'].compute())))
+        legend.append(f"{zone}_{instant}")
+    
+    n = len(legend)
+        
+    plot_dictionary = {
+        'Frequency (Hz)' : {
+            'values' : Axis_x,
+            'markers' : n*['lines'],
+            'legend' : legend,
+            'sizes' : n*[2]
+        },
+        'FFt(Displacement) (mm)' : {
+            'values' : Axis_y
+        },
+    }
+    output_path = r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal"
+    Ploter = Orion.Plot
+    Ploter(output_path, dir_name_tag = r"Reporting\Input", files_name_tag = f"Frequency_domain_Input_Phase_BMWvsBWI_PID-Sinus").cartesian_plot_to_html(plot_dictionary)
     
     # #FIXME -  Smoothing
     # base = Processor(base).smooth(window=[2, 100, 2], order=1)
@@ -133,7 +162,7 @@ if __name__ == "__main__":
     for zone, instant in base.items():
         if zone != 'BMW':
             Axis_x.append(base[zone][instant]['Frequency'].compute())
-            Axis_y.append(base[zone][instant]['ForceZ_mag'].compute()/base[zone][instant]['CoordinateZ_mag'].compute())
+            Axis_y.append(np.abs(base[zone][instant]['ForceZ_complex'].compute()/base[zone][instant]['CoordinateZ_complex'].compute()))
             legend.append(f"{zone}_{instant}")
     
     n = len(legend)
@@ -141,7 +170,7 @@ if __name__ == "__main__":
     plot_dictionary = {
         'Frequency (Hz)' : {
             'values' : Axis_x,
-            'markers' : n*['markers+lines'],
+            'markers' : n*['lines'],
             'legend' : legend,
             'sizes' : n*[2]
         },
@@ -160,7 +189,7 @@ if __name__ == "__main__":
     for zone, instant in base.items():
         if zone != 'BMW':
             Axis_x.append(base[zone][instant]['Frequency'].compute())
-            Axis_y.append((180/np.pi) * (base[zone][instant]['ForceZ_phase'].compute() - base[zone][instant]['CoordinateZ_phase'].compute()))
+            Axis_y.append(np.degrees(np.angle(base[zone][instant]['ForceZ_complex'].compute()/base[zone][instant]['CoordinateZ_complex'].compute())))
             legend.append(f"{zone}_{instant}")
     
     n = len(legend)
@@ -188,7 +217,7 @@ if __name__ == "__main__":
     for zone, instant in base.items():
         if zone != 'BMW':
             Axis_x.append(base[zone][instant]['Frequency'].compute())
-            Axis_y.append(base[zone][instant]['ForceZ_mag'].compute()/base[zone][instant]['VelocityZ_mag'].compute())
+            Axis_y.append(np.abs(base[zone][instant]['ForceZ_complex'].compute()/base[zone][instant]['VelocityZ_complex'].compute()))
             legend.append(f"{zone}_{instant}")
     
     n = len(legend)
@@ -196,7 +225,7 @@ if __name__ == "__main__":
     plot_dictionary = {
         'Frequency (Hz)' : {
             'values' : Axis_x,
-            'markers' : n*['markers+lines'],
+            'markers' : n*['lines'],
             'legend' : legend,
             'sizes' : n*[2]
         },
@@ -215,7 +244,7 @@ if __name__ == "__main__":
     for zone, instant in base.items():
         if zone != 'BMW':
             Axis_x.append(base[zone][instant]['Frequency'].compute())
-            Axis_y.append((180/np.pi) * (base[zone][instant]['ForceZ_phase'].compute() - base[zone][instant]['VelocityZ_phase'].compute()))
+            Axis_y.append(np.degrees(np.angle(base[zone][instant]['ForceZ_complex'].compute() - base[zone][instant]['VelocityZ_complex'].compute())))
             legend.append(f"{zone}_{instant}")
     
     n = len(legend)

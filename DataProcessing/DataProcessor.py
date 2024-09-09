@@ -183,8 +183,8 @@ class Processor(SharedMethods):
             if len(frequencies_band) != 2:
                 frequencies_band = [np.min(frequencies_band), np.max(frequencies_band)]
         
-        if decomposition_type not in ["im/re", "mod/phi", "both"]:
-            raise ValueError("Invalid decomposition_type. Choose from 'im/re', 'mod/phi', or 'both'.")
+        if decomposition_type not in ["im/re", "mod/phi", "both", 'complex']:
+            raise ValueError("Invalid decomposition_type. Choose from 'im/re', 'mod/phi', complex, or 'both'.")
                 
         fft_base = Orion.Base()
         fft_base.add_zone(list(self.base.keys()))
@@ -219,6 +219,10 @@ class Processor(SharedMethods):
                                                              da.abs(fft_value))
                         fft_base[zone][instant].add_variable(f"{variable}_phase", 
                                                              da.angle(fft_value))
+                    
+                    if decomposition_type in ["complex"]:
+                        fft_base[zone][instant].add_variable(f"{variable}_complex", 
+                                                             fft_value)
 
         return fft_base
 
