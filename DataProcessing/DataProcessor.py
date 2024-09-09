@@ -169,8 +169,7 @@ class Processor(SharedMethods):
             - The `mask_band` method is used to filter out frequencies outside the specified `frequencies_band`.
             - `fft_base` contains FFT results for each variable that is not listed in `invariant_variables`.
             """
-        invariant_variables = kwargs.get("invariant_variables", 
-                                         Orion.DEFAULT_COORDINATE_NAMES + 
+        invariant_variables = kwargs.get("invariant_variables",
                                          Orion.DEFAULT_TIME_NAME)
         
         if np.any(frequencies_band):
