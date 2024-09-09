@@ -122,7 +122,7 @@ class Processor(SharedMethods):
                                                                     base[zone][instant][var].data)
         return pivot_base
 
-    def fft(self, dt, decomposition_type="both", frequencies_band = (None, None), **kwargs):
+    def fft(self, dt = None, decomposition_type="both", frequencies_band = (None, None), **kwargs):
         """
         Compute the Fast Fourier Transform (FFT) of the input signal for each variable in the dataset.
 
@@ -190,6 +190,8 @@ class Processor(SharedMethods):
         fft_base.add_zone(list(self.base.keys()))
         for ninstant, (zone, instant) in enumerate(self.base.items()):
             fft_base[zone].add_instant(instant)
+            if dt is None:
+                dt = (self.base[zone][instant]['TimeValue'][1] - self.base[zone][instant]['TimeValue'][0]).compute()
             for variable, value in self.base[zone][instant].items():
                 if variable not in invariant_variables:
                     # Compute the FFT using Dask
@@ -197,15 +199,14 @@ class Processor(SharedMethods):
                     fft_freqs = da.fft.fftfreq(len(value), d=dt)
                     # Only take the positive frequencies (since FFT is symmetric)
                     if np.any(frequencies_band):
-                        mask = self.mask_band(fft_freqs, frequencies_band)
+                        mask = self.mask_band(fft_freqs[:len(fft_freqs)//2], frequencies_band)
                         fft_value = fft_value[:len(fft_value)//2][mask.compute()]
                         fft_freqs = fft_freqs[:len(fft_freqs)//2][mask.compute()]
                     else:
                         fft_value = fft_value[:len(fft_value)//2]
                         fft_freqs = fft_freqs[:len(fft_freqs)//2]
                     
-                    if ninstant == 0:
-                        fft_base[zone][instant].add_variable('Frequency', fft_freqs)
+                    fft_base[zone][instant].add_variable('Frequency', fft_freqs)
                     
                     if decomposition_type in ["im/re", "both"]:
                         fft_base[zone][instant].add_variable(f"{variable}_real", 
@@ -310,6 +311,18 @@ class Processor(SharedMethods):
                     
         return self.base
     
+    def reduce(self, factor = 2):
+        
+        reduce_base = Orion.Base()
+        reduce_base.add_zone(list(self.base.keys()))
+        for zone, instant in self.base.items():
+            reduce_base[zone].add_instant(instant)
+            for variable_name, variable_obj in list(self.base[zone][instant].items()):
+                reduce_base[zone][instant].add_variable(f"{variable_name}", 
+                                                        variable_obj[::factor])
+        
+        return reduce_base
+        
     def __is_dask_array(self, input):
         if not isinstance(input, da.Array):
             return da.from_array(input, chunks=(len(input),))
@@ -320,7 +333,7 @@ class Processor(SharedMethods):
         if input.chunks[0][0] != len(input):
             return input.rechunk((len(input),))
         return input
-
+    
     @staticmethod
     def compute_transfer_function(input_signal, output_signal, time, order = (1, 2),
                               method = 'scipy_minimize', initial_params = None,

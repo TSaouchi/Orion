@@ -260,3 +260,4 @@ class Plot(SharedMethods):
         output_path = os.path.join(export_path, self.files_name_tag)
         self.print_text("check", f"\n\tHTML Plot produced in : {output_path}")
         plot(fig, filename = output_path, auto_open = auto_open)
+        

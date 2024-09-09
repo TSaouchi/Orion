@@ -221,7 +221,7 @@ class Base(CustomAttributes):
     def compute(self, expression):
         """Compute a new variable based on the given expression and apply it across all zones and instants."""
         # Parse the expression: "variable3 = variable1 * variable2"
-        var_name, operation = expression.split('=')
+        var_name, operation = expression.split('=', 1)
         var_name = var_name.strip()
         operation = operation.strip()
 
