@@ -13,22 +13,18 @@ if __name__ == "__main__":
     cases = {
         "Zones" : [
             'BMW',
-            "BWI_soft_mode",
-            "BWI_hard_mode"
+            "BWI_soft_mode"
             ],
         "Paths" : [
             r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal\20 BMW Signale\stimuli_pink_noise_0p1_30Hz_20s\info",
-            r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal\Single_measures_without_topmount\24-0052_RR_G60_1963_R2_Pink_Noise_0p4A_Sinus",
-            r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal\Single_measures_without_topmount\24-0052_RR_G60_1963_R2_Pink_Noise_1p6A_Sinus"
+            r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal\Single_measures_without_topmount\24-0052_RR_G60_1963_R2_Pink_Noise_0p4A_Sinus"
         ],
         "file_name_patterns" : [
-            "damper_noise_red_HA_amp<instant>",
-            "Pink_Noise_HA_amp<instant>",
-            "Pink_Noise_HA_amp<instant>"
+            "damper_noise_red_HA_amp001p2_spd0100_info.mat",
+            "Pink_Noise_HA_amp001p2_spd0100.dat"
             ],
         "Variables": [
             ['t', 'z', 'trigger'],
-            ["Temps", "Axial Displacement", "Axial Force"],
             ["Temps", "Axial Displacement", "Axial Force"]
         ]
     }
@@ -43,7 +39,8 @@ if __name__ == "__main__":
                               cases["file_name_patterns"][nzone]).read_mat(
                                   variables = cases["Variables"][nzone],
                                   zone_name = [zone])
-            
+            for zone, instant in base_tmp.items():
+                base_tmp[zone][instant].add_variable("CoordinateZ", 1e3*base_tmp[zone][instant]['CoordinateZ'].data)
             base_tmp.compute("VelocityZ = np.diff(CoordinateZ)/(TimeValue[1] - TimeValue[0])")
             base.append(base_tmp)
         else:
@@ -53,15 +50,17 @@ if __name__ == "__main__":
                         zone_name = [zone])
                 
             base_tmp.compute("VelocityZ = np.diff(CoordinateZ)/(TimeValue[1] - TimeValue[0])")
-            base_tmp = Processor(base_tmp).reduce(factor=4)
+            #* INFO - Resampling of the measure
+            base_tmp = Processor(base_tmp).reduce(factor = 4)
             base.append(base_tmp)
 
     base = Processor(base).fusion()
-    speed = ["amp001p2_spd0100","amp002p4_spd0200","amp006p0_spd0500","amp012p1_spd1000","amp018p1_spd1500"]
+    speed = ["amp001p2_spd0100"]
     for zone in base.keys():
         base[zone].rename_instant(list(base[zone].keys()), speed)
-    # # ============================= Data manipulation ==========================
-    #NOTE - Signal BMW vs BWI
+    ## ============================= Data manipulation ==========================
+    #! Input signal BMW vs BWI 
+    #* Time domain  
     Axis_x = []
     Axis_y= []
     legend = []
@@ -69,7 +68,7 @@ if __name__ == "__main__":
     for zone, instant in base.items():
         Axis_x.append(base[zone][instant]['TimeValue'].compute() - base[zone][instant]['TimeValue'].compute().min())
         if zone == 'BMW':
-            Axis_y.append(1e3*base[zone][instant]['CoordinateZ'].compute())
+            Axis_y.append(base[zone][instant]['CoordinateZ'].compute())
         else:
             Axis_y.append(base[zone][instant]['CoordinateZ'].compute())
         legend.append(f"{zone}_{instant}")
@@ -91,9 +90,39 @@ if __name__ == "__main__":
     Ploter = Orion.Plot
     Ploter(output_path, dir_name_tag = r"Reporting\Input", files_name_tag = f"Time_domain_Input_BMWvsBWI_PID-Sinus").cartesian_plot_to_html(plot_dictionary)
     
-    # FFT BMW vs BWI
-    # Signal BMW vs BWI
-    base = Processor(base).fft(decomposition_type='complex', frequencies_band = (None, 35))
+    #* PSD
+    psd_base = Processor(base).psd(frequencies_band = (0, 30))
+    Axis_x = []
+    Axis_y= []
+    legend = []
+    
+    for zone, instant in psd_base.items():
+        Axis_x.append(psd_base[zone][instant]['Frequency'].compute())
+        if zone == 'BMW':
+            Axis_y.append(psd_base[zone][instant]['CoordinateZ'].compute())
+        else:
+            Axis_y.append(psd_base[zone][instant]['CoordinateZ'].compute())
+        legend.append(f"{zone}_{instant}")
+    
+    n = len(legend)
+    
+    plot_dictionary = {
+        'Frequency (Hz)' : {
+            'values' : Axis_x,
+            'markers' : n*['lines'],
+            'legend' : legend,
+            'sizes' : n*[2]
+        },
+        'PSD (mm^2/Hz)' : {
+            'values' : Axis_y
+        },
+    }
+    output_path = r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal"
+    Ploter = Orion.Plot
+    Ploter(output_path, dir_name_tag = r"Reporting\Input", files_name_tag = f"Frequency_domain_Input_PSD_BMWvsBWI_PID-Sinus").cartesian_plot_to_html(plot_dictionary)
+    
+    #* FFT 
+    base = Processor(base).fft(decomposition_type='mod/phi', frequencies_band = (0.1, 30))
     Axis_x = []
     Axis_y= []
     legend = []
@@ -101,13 +130,13 @@ if __name__ == "__main__":
     for zone, instant in base.items():
         Axis_x.append(base[zone][instant]['Frequency'].compute())
         if zone == 'BMW':
-            Axis_y.append(1e3*np.abs(base[zone][instant]['CoordinateZ_complex'].compute()))
+            Axis_y.append(base[zone][instant]['CoordinateZ_mag'].compute())
         else:
-            Axis_y.append(np.abs(base[zone][instant]['CoordinateZ_complex'].compute()))
+            Axis_y.append(base[zone][instant]['CoordinateZ_mag'].compute())
         legend.append(f"{zone}_{instant}")
     
     n = len(legend)
-        
+    
     plot_dictionary = {
         'Frequency (Hz)' : {
             'values' : Axis_x,
@@ -130,9 +159,9 @@ if __name__ == "__main__":
     for zone, instant in base.items():
         Axis_x.append(base[zone][instant]['Frequency'].compute())
         if zone == 'BMW':
-            Axis_y.append(np.degrees(np.angle(base[zone][instant]['CoordinateZ_complex'].compute())))
+            Axis_y.append(np.degrees(base[zone][instant]['CoordinateZ_phase'].compute()))
         else:
-            Axis_y.append(np.degrees(np.angle(base[zone][instant]['CoordinateZ_complex'].compute())))
+            Axis_y.append(np.degrees(base[zone][instant]['CoordinateZ_phase'].compute()))
         legend.append(f"{zone}_{instant}")
     
     n = len(legend)
@@ -152,9 +181,8 @@ if __name__ == "__main__":
     Ploter = Orion.Plot
     Ploter(output_path, dir_name_tag = r"Reporting\Input", files_name_tag = f"Frequency_domain_Input_Phase_BMWvsBWI_PID-Sinus").cartesian_plot_to_html(plot_dictionary)
     
-    # #FIXME -  Smoothing
-    # base = Processor(base).smooth(window=[2, 100, 2], order=1)
-    #NOTE - Force over Displacement
+    #! FFT measure BWI  
+    #* FFT : Force over Displacement
     Axis_x = []
     Axis_y= []
     legend = []
@@ -162,19 +190,25 @@ if __name__ == "__main__":
     for zone, instant in base.items():
         if zone != 'BMW':
             Axis_x.append(base[zone][instant]['Frequency'].compute())
-            Axis_y.append(np.abs(base[zone][instant]['ForceZ_complex'].compute()/base[zone][instant]['CoordinateZ_complex'].compute()))
+            Axis_y.append(20*np.log10(np.abs(base[zone][instant]['ForceZ_mag'].compute()/(1e-3*base[zone][instant]['CoordinateZ_mag'].compute()))))
             legend.append(f"{zone}_{instant}")
     
+    #FIXME -  Smoothing
+    base_smooth = Processor(base).smooth(window=[31, 150, 5], order=2)
+    Axis_x.append(base_smooth[1][0]['Frequency'].compute())
+    Axis_y.append(20*np.log10(np.abs(base_smooth[1][0]['ForceZ_mag'].compute()/(1e-3*base_smooth[1][0]['CoordinateZ_mag'].compute()))))
+    legend.append(f"{legend[0]}_smoothed")
+    
     n = len(legend)
-        
     plot_dictionary = {
         'Frequency (Hz)' : {
             'values' : Axis_x,
             'markers' : n*['lines'],
             'legend' : legend,
-            'sizes' : n*[2]
+            'sizes' : n*[2],
+            'scale' : 'logx'
         },
-        'Frequency Response Function |H(f)| (N/mm)' : {
+        'FRF 20log10(|H(f)|) (dB)' : {
             'values' : Axis_y
         },
     }
@@ -182,46 +216,25 @@ if __name__ == "__main__":
     Ploter = Orion.Plot
     Ploter(output_path, dir_name_tag = r"Reporting\Output", files_name_tag = f"Frequency_domain_Output_Magnitude-F-S_BWI_PID-Sinus").cartesian_plot_to_html(plot_dictionary)
     
+    
     Axis_x = []
     Axis_y= []
     legend = []
-    
+    mod = lambda x : np.degrees(np.mod(x + np.pi, 2 * np.pi) - np.pi)
     for zone, instant in base.items():
         if zone != 'BMW':
             Axis_x.append(base[zone][instant]['Frequency'].compute())
-            Axis_y.append(np.degrees(np.angle(base[zone][instant]['ForceZ_complex'].compute()/base[zone][instant]['CoordinateZ_complex'].compute())))
+            phase_diff = base[zone][instant]['ForceZ_phase'].compute() - base[zone][instant]['CoordinateZ_phase'].compute()
+            base[zone][instant].add_variable("phase_mod", mod(phase_diff))
+            Axis_y.append(mod(phase_diff))
             legend.append(f"{zone}_{instant}")
     
+    #FIXME -  Smoothing
+    base_smooth = Processor(base).smooth(window=[4, 500, 5], order=1)
+    Axis_x.append(base_smooth[1][0]['Frequency'].compute())
+    Axis_y.append(base_smooth[1][0]['phase_mod'].compute())
+    legend.append(f"{legend[0]}_smoothed")
     n = len(legend)
-        
-    plot_dictionary = {
-        'Frequency (Hz)' : {
-            'values' : Axis_x,
-            'markers' : n*['markers'],
-            'legend' : legend,
-            'sizes' : n*[2]
-        },
-        'Frequency Response Function arg(H(f)) (°)' : {
-            'values' : Axis_y
-        },
-    }
-    output_path = r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal"
-    Ploter = Orion.Plot
-    Ploter(output_path, dir_name_tag = r"Reporting\Output", files_name_tag = f"Frequency_domain_Output_Phase-F-S_BWI_PID-Sinus").polar_plot_to_html(plot_dictionary)
-    
-    #NOTE - Force over Velocity
-    Axis_x = []
-    Axis_y= []
-    legend = []
-    
-    for zone, instant in base.items():
-        if zone != 'BMW':
-            Axis_x.append(base[zone][instant]['Frequency'].compute())
-            Axis_y.append(np.abs(base[zone][instant]['ForceZ_complex'].compute()/base[zone][instant]['VelocityZ_complex'].compute()))
-            legend.append(f"{zone}_{instant}")
-    
-    n = len(legend)
-        
     plot_dictionary = {
         'Frequency (Hz)' : {
             'values' : Axis_x,
@@ -229,37 +242,10 @@ if __name__ == "__main__":
             'legend' : legend,
             'sizes' : n*[2]
         },
-        'Impedande |Z(f)| (N.s/mm)' : {
+        'FRF arg(H(f)) (°)' : {
             'values' : Axis_y
         },
     }
     output_path = r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal"
     Ploter = Orion.Plot
-    Ploter(output_path, dir_name_tag = r"Reporting\Output", files_name_tag = f"Frequency_domain_Output_Magnitude-F-V_BWI_PID-Sinus").cartesian_plot_to_html(plot_dictionary)
-    
-    Axis_x = []
-    Axis_y= []
-    legend = []
-    
-    for zone, instant in base.items():
-        if zone != 'BMW':
-            Axis_x.append(base[zone][instant]['Frequency'].compute())
-            Axis_y.append(np.degrees(np.angle(base[zone][instant]['ForceZ_complex'].compute() - base[zone][instant]['VelocityZ_complex'].compute())))
-            legend.append(f"{zone}_{instant}")
-    
-    n = len(legend)
-        
-    plot_dictionary = {
-        'Frequency (Hz)' : {
-            'values' : Axis_x,
-            'markers' : n*['markers'],
-            'legend' : legend,
-            'sizes' : n*[2]
-        },
-        'Impedande arg(Z(f)) (°)' : {
-            'values' : Axis_y
-        },
-    }
-    output_path = r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal"
-    Ploter = Orion.Plot
-    Ploter(output_path, dir_name_tag = r"Reporting\Output", files_name_tag = f"Frequency_domain_Output_Phase-F-V_BWI_PID-Sinus").polar_plot_to_html(plot_dictionary)
+    Ploter(output_path, dir_name_tag = r"Reporting\Output", files_name_tag = f"Frequency_domain_Output_Phase-F-S_BWI_PID-Sinus").cartesian_plot_to_html(plot_dictionary)

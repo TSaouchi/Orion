@@ -23,7 +23,7 @@ import h5py as hdf
 import ast
 
 # Signal processing
-from scipy.signal import butter, cheby1, cheby2, ellip, bessel, filtfilt, savgol_filter
+from scipy.signal import butter, cheby1, cheby2, ellip, bessel, filtfilt, savgol_filter, welch
 from scipy import signal
 from scipy.optimize import minimize
 
@@ -122,7 +122,7 @@ class Processor(SharedMethods):
                                                                     base[zone][instant][var].data)
         return pivot_base
 
-    def fft(self, dt = None, decomposition_type="both", frequencies_band = (None, None), **kwargs):
+    def fft(self, decomposition_type="both", frequencies_band = (None, None), **kwargs):
         """
         Compute the Fast Fourier Transform (FFT) of the input signal for each variable in the dataset.
 
@@ -188,16 +188,21 @@ class Processor(SharedMethods):
                 
         fft_base = Orion.Base()
         fft_base.add_zone(list(self.base.keys()))
-        for ninstant, (zone, instant) in enumerate(self.base.items()):
+        
+        for zone, instant in self.base.items():
             fft_base[zone].add_instant(instant)
-            if dt is None:
-                dt = (self.base[zone][instant]['TimeValue'][1] - self.base[zone][instant]['TimeValue'][0]).compute()
+            
+            time_name = Orion.DEFAULT_TIME_NAME[0]
+            dt = (self.base[zone][instant][time_name][1] - self.base[zone][instant][time_name][0]).compute()
+            
             for variable, value in self.base[zone][instant].items():
+            
                 if variable not in invariant_variables:
                     # Compute the FFT using Dask
                     fft_value = da.fft.fft(value, axis=0)
                     fft_freqs = da.fft.fftfreq(len(value), d=dt)
                     # Only take the positive frequencies (since FFT is symmetric)
+            
                     if np.any(frequencies_band):
                         mask = self.mask_band(fft_freqs[:len(fft_freqs)//2], frequencies_band)
                         fft_value = fft_value[:len(fft_value)//2][mask.compute()]
@@ -206,7 +211,8 @@ class Processor(SharedMethods):
                         fft_value = fft_value[:len(fft_value)//2]
                         fft_freqs = fft_freqs[:len(fft_freqs)//2]
                     
-                    fft_base[zone][instant].add_variable('Frequency', fft_freqs)
+                    fft_base[zone][instant].add_variable(
+                        Orion.DEFAULT_FREQUENCY_NAME[0], fft_freqs)
                     
                     if decomposition_type in ["im/re", "both"]:
                         fft_base[zone][instant].add_variable(f"{variable}_real", 
@@ -225,7 +231,50 @@ class Processor(SharedMethods):
                                                              fft_value)
 
         return fft_base
-
+    
+    def psd(self, frequencies_band = (None, None), **kwargs):    
+        
+        if np.any(frequencies_band):
+            if not isinstance(frequencies_band, (tuple, list)):
+                print("Frequencies band type can be tuple or list.")
+                raise ValueError
+            
+            if not isinstance(frequencies_band, (tuple, list)):
+                raise TypeError("Frequencies band must be a tuple or list.")
+            
+            if len(frequencies_band) != 2:
+                frequencies_band = [np.min(frequencies_band), np.max(frequencies_band)]
+                
+        invariant_variables = kwargs.get("invariant_variables",
+                                         Orion.DEFAULT_TIME_NAME)
+                    
+        psd_base = Orion.Base()
+        psd_base.add_zone(list(self.base.keys()))
+        
+        for zone, instant in self.base.items():
+            psd_base[zone].add_instant(instant)
+            
+            time_name = Orion.DEFAULT_TIME_NAME[0]
+            dt = (self.base[zone][instant][time_name][1] - self.base[zone][instant][time_name][0]).compute()
+            
+            for variable, value in self.base[zone][instant].items():
+            
+                if variable not in invariant_variables:
+                    
+                    psd_freqs, psd_value = welch(value, fs=1/dt, 
+                                                 nperseg=len(value)//8)
+                     
+                    if np.any(frequencies_band):
+                        mask = self.mask_band(psd_freqs, frequencies_band)
+                        psd_freqs = psd_freqs[mask]
+                        psd_value = psd_value[mask]
+                        
+                    psd_base[zone][instant].add_variable(
+                        Orion.DEFAULT_FREQUENCY_NAME[0], psd_freqs)
+                    psd_base[zone][instant].add_variable(variable, psd_value)
+                    
+        return psd_base
+    
     def filter(self, **kwargs):
         """
         Apply a digital filter to the data using various filter types and configurations.
@@ -336,7 +385,8 @@ class Processor(SharedMethods):
             order = 1
         
         invariant_variables = kwargs.get("invariant_variables",
-                                         Orion.DEFAULT_TIME_NAME)
+                                         Orion.DEFAULT_TIME_NAME + 
+                                         Orion.DEFAULT_FREQUENCY_NAME)
         
         first_window_size, middle_window_size, last_window_size = window
             
@@ -346,9 +396,14 @@ class Processor(SharedMethods):
             smooth_base[zone].add_instant(instant)
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
                 if variable_name not in invariant_variables:
-                    smoothed_variable = self.smoothing(variable_obj, 
-                                                       order, 
-                                                       *window)
+                    
+                    if np.issubdtype(variable_obj, np.complexfloating):
+                        self.print_text("error", f"Can not smooth complex number. Variable {variable_name} is complex.")
+                        raise ValueError
+                    else:
+                        smoothed_variable = self.smoothing(variable_obj, 
+                                                        order, 
+                                                        *window)
                     smooth_base[zone][instant].add_variable(f"{variable_name}", 
                                                             smoothed_variable)
                 else:

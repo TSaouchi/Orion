@@ -122,8 +122,31 @@ class Plot(SharedMethods):
                         marker = dict(size = x_axis['sizes'][n] if 'sizes' in x_axis else 10),
                         line = dict(width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
                     ))
-            fig.update_layout(xaxis_title = x_axis_title,
-                              yaxis_title = y_axis_title)
+            
+            if 'scale' in x_axis.keys():
+                if x_axis["scale"] in "loglog":
+                    fig.update_layout(
+                    xaxis_title = x_axis_title,
+                    yaxis_title = y_axis_title,
+                    xaxis=dict(type="log", exponentformat="e"),  # log scale for x-axis
+                    yaxis=dict(type="log", exponentformat="e")  # log scale for y-axis
+                )
+                elif x_axis["scale"] in "logx":
+                    fig.update_layout(
+                    xaxis_title = x_axis_title,
+                    yaxis_title = y_axis_title,
+                    xaxis=dict(type="log", exponentformat="e"),  # log scale for x-axis
+                )
+                elif x_axis["scale"] in "logy":
+                    fig.update_layout(
+                    xaxis_title = x_axis_title,
+                    yaxis_title = y_axis_title,
+                    yaxis=dict(type="log", exponentformat="e")  # log scale for y-axis
+                )                
+            else:
+                fig.update_layout(xaxis_title = x_axis_title,
+                                yaxis_title = y_axis_title)
+            
 
         #:Plotting for 3D
         else:
