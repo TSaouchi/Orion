@@ -10,18 +10,18 @@ from Core import DEFAULT_ZONE_NAME, DEFAULT_INSTANT_NAME
 
 class CustomAttributes:
     def __init__(self):
-        self._attributes: Dict[str, Any] = OrderedDict()
+        self._attributes = OrderedDict()
 
-    def set_attribute(self, name: str, value: Any) -> None:
+    def set_attribute(self, name, value):
         self._attributes[name] = value
 
-    def get_attribute(self, name: str, default: Any = None) -> Any:
+    def get_attribute(self, name, default = None):
         return self._attributes.get(name, default)
 
-    def delete_attribute(self, name: str) -> None:
+    def delete_attribute(self, name):
         self._attributes.pop(name, None)
 
-    def rename_attribute(self, old_name: str, new_name: str) -> None:
+    def rename_attribute(self, old_name, new_name):
         if old_name in self._attributes:
             self._attributes[new_name] = self._attributes.pop(old_name)
 
@@ -40,15 +40,18 @@ class Variables(CustomAttributes):
 class Instants(CustomAttributes):
     def __init__(self):
         super().__init__()
-        self.variables: Dict[str, Variables] = OrderedDict() 
+        self.variables = OrderedDict() 
 
     def add_variable(self, name, data):
-        self.variables[name] = Variables(data)
+        if name in self.variables:
+        # This line updates existing variable, not overwrite
+            self.variables[name].data = da.array(data)
+        else:
+            self.variables[name] = Variables(data)
 
     def delete_variable(self, names):
         if not isinstance(names, list):
             names = [names]
-            
         for name in names:
             self.variables.pop(name, None)
     
@@ -89,7 +92,7 @@ class Instants(CustomAttributes):
 class Zones(CustomAttributes):
     def __init__(self):
         super().__init__()
-        self.instants: Dict[str, Instants] = OrderedDict() 
+        self.instants = OrderedDict() 
 
     def add_instant(self, names) :
         if not isinstance(names, list):
@@ -105,7 +108,7 @@ class Zones(CustomAttributes):
         for name in names:
             self.instants.pop(name, None)
 
-    def rename_instant(self, old_names, new_names) -> None:
+    def rename_instant(self, old_names, new_names):
         if not isinstance(old_names, list):
             old_names = [old_names]
         if not isinstance(new_names, list):
@@ -119,7 +122,7 @@ class Zones(CustomAttributes):
             else:
                 raise ValueError(f"{old_name} not found")
 
-    def __getitem__(self, key: Union[int, str]) -> Instants:
+    def __getitem__(self, key):
         if isinstance(key, int):
             return list(self.instants.values())[key]
         return self.instants[key]
@@ -135,9 +138,9 @@ class Zones(CustomAttributes):
 class Base(CustomAttributes):
     def __init__(self):
         super().__init__()
-        self.zones: Dict[str, Zones] = OrderedDict()
+        self.zones = OrderedDict()
 
-    def init(self, zones: List[str] = None, instants: List[str] = None) -> None:
+    def init(self, zones = None, instants = None):
                 
         if zones is None:
             zones = DEFAULT_ZONE_NAME
@@ -150,7 +153,7 @@ class Base(CustomAttributes):
             for instant in instants:
                 self[zone].add_instant(instant)
     
-    def add(self, zones: List[str] = None, instants: List[str] = None) -> None:
+    def add(self, zones = None, instants = None):
         self.init(zones, instants)
 
     def add_zone(self, names):
@@ -167,7 +170,7 @@ class Base(CustomAttributes):
         for name in names:
             self.zones.pop(name, None) 
 
-    def rename_zone(self, old_names, new_names) -> None:
+    def rename_zone(self, old_names, new_names):
         
         if not isinstance(old_names, list):
             old_names = [old_names]
@@ -183,7 +186,7 @@ class Base(CustomAttributes):
             else:
                 raise ValueError(f"{old_name} not found")
     
-    def rename_variable(self, old_names, new_names) -> None:
+    def rename_variable(self, old_names, new_names):
         if len(old_names) != len(new_names):
             raise ValueError("The number of old and new variable names must match.")
 
@@ -254,8 +257,9 @@ class Base(CustomAttributes):
                 for zone in self.zones.values():
                     for instant in zone.instants.values():
                         futures.append(
-                            executor.submit(evaluate_and_add_variable, instant, var_name, operation)
-                        )
+                            executor.submit(evaluate_and_add_variable, 
+                                            instant, var_name, operation)
+                            )
             else:
                 # Compute only in instants where all variables in the expression exist
                 for zone in self.zones.values():
