@@ -13,7 +13,6 @@ from collections import deque
 # Data processing
 import numpy as np
 import dask.array as da
-import scipy as spy
 import pandas as pd
 
 # I/O
@@ -23,9 +22,8 @@ import h5py as hdf
 import ast
 
 # Signal processing
+import scipy as spy
 from scipy.signal import butter, cheby1, cheby2, ellip, bessel, filtfilt, savgol_filter, welch
-from scipy import signal
-from scipy.optimize import minimize
 
 # Orion
 import Core as Orion
@@ -40,7 +38,7 @@ os.environ['VTK_SILENCE_GET_VOID_POINTER_WARNINGS'] = '1'
 
 class Processor(SharedMethods):
     """
-    Data processing 
+    Data processing
     """
     def __init__(self, base, quantities_of_interest = None,
                  NumericalScheme = None, gridFields = None):
@@ -57,7 +55,7 @@ class Processor(SharedMethods):
         :type gridFields: dict, optional
 
         .. note::
-        
+
             - This method initializes the ExportDataToWrite subclass with provided parameters.
             - It sets attributes for the dataset (`base`), quantities of interest (`quantities_of_interest_dic`),
             numerical scheme (`NumericalScheme`), and grid fields (`gridFields`).
@@ -74,7 +72,7 @@ class Processor(SharedMethods):
 
         self.NumericalScheme = NumericalScheme
         self.gridFields = gridFields
-        
+
     def fusion(self):
         """
         Merge multiple data sources into a single pivot base.
@@ -95,7 +93,7 @@ class Processor(SharedMethods):
         """
         bases = deque(self.base)
         pivot_base = bases.popleft()
-        
+
         for base in bases:
             for n, (zone, instant) in enumerate(base.items()):
 
@@ -140,7 +138,7 @@ class Processor(SharedMethods):
         :param kwargs: Additional arguments. This can include:
             - `invariant_variables`: A list of variable names to exclude from FFT computation.
             Default is set to Orion.DEFAULT_COORDINATE_NAMES + Orion.DEFAULT_TIME_NAME.
-            
+
         :return: A dictionary-like object (fft_base) with the FFT results, varying by `decomposition_type`:
             - For "im/re":
                 - **frequencies**: The positive frequencies corresponding to the FFT result.
@@ -158,7 +156,7 @@ class Processor(SharedMethods):
                 - **phase**: The phase of the FFT result for each variable.
         :rtype: dict-like (fft_base)
 
-        :raises ValueError: 
+        :raises ValueError:
             - If `frequencies_band` is not a tuple or list, or if it does not contain exactly two elements.
             - If `decomposition_type` is not one of the accepted values ("im/re", "mod/phi", "both").
         :raises TypeError: If `frequencies_band` is not a tuple or list.
@@ -171,110 +169,110 @@ class Processor(SharedMethods):
             """
         invariant_variables = kwargs.get("invariant_variables",
                                          Orion.DEFAULT_TIME_NAME)
-        
+
         if np.any(frequencies_band):
             if not isinstance(frequencies_band, (tuple, list)):
                 print("Frequencies band type can be tuple or list.")
                 raise ValueError
-            
+
             if not isinstance(frequencies_band, (tuple, list)):
                 raise TypeError("Frequencies band must be a tuple or list.")
-            
+
             if len(frequencies_band) != 2:
                 frequencies_band = [np.min(frequencies_band), np.max(frequencies_band)]
-        
+
         if decomposition_type not in ["im/re", "mod/phi", "both", 'complex']:
             raise ValueError("Invalid decomposition_type. Choose from 'im/re', 'mod/phi', complex, or 'both'.")
-                
+
         fft_base = Orion.Base()
         fft_base.add_zone(list(self.base.keys()))
-        
+
         for zone, instant in self.base.items():
             fft_base[zone].add_instant(instant)
-            
+
             time_name = Orion.DEFAULT_TIME_NAME[0]
             dt = (self.base[zone][instant][time_name][1] - self.base[zone][instant][time_name][0]).compute()
-            
+
             for variable, value in self.base[zone][instant].items():
-            
+
                 if variable not in invariant_variables:
                     # Compute the FFT using Dask
                     fft_value = da.fft.fft(value, axis=0)
                     fft_freqs = da.fft.fftfreq(len(value), d=dt)
                     # Only take the positive frequencies (since FFT is symmetric)
-            
+
                     if np.any(frequencies_band):
-                        mask = self.mask_band(fft_freqs[:len(fft_freqs)//2], frequencies_band)
+                        mask = self.__mask_band(fft_freqs[:len(fft_freqs)//2], frequencies_band)
                         fft_value = fft_value[:len(fft_value)//2][mask.compute()]
                         fft_freqs = fft_freqs[:len(fft_freqs)//2][mask.compute()]
                     else:
                         fft_value = fft_value[:len(fft_value)//2]
                         fft_freqs = fft_freqs[:len(fft_freqs)//2]
-                    
+
                     fft_base[zone][instant].add_variable(
                         Orion.DEFAULT_FREQUENCY_NAME[0], fft_freqs)
-                    
+
                     if decomposition_type in ["im/re", "both"]:
-                        fft_base[zone][instant].add_variable(f"{variable}_real", 
+                        fft_base[zone][instant].add_variable(f"{variable}_real",
                                                              np.real(fft_value))
-                        fft_base[zone][instant].add_variable(f"{variable}_img", 
+                        fft_base[zone][instant].add_variable(f"{variable}_img",
                                                              np.imag(fft_value))
-                    
+
                     if decomposition_type in ["mod/phi", "both"]:
-                        fft_base[zone][instant].add_variable(f"{variable}_mag", 
+                        fft_base[zone][instant].add_variable(f"{variable}_mag",
                                                              da.abs(fft_value))
-                        fft_base[zone][instant].add_variable(f"{variable}_phase", 
+                        fft_base[zone][instant].add_variable(f"{variable}_phase",
                                                              da.angle(fft_value))
-                    
+
                     if decomposition_type in ["complex"]:
-                        fft_base[zone][instant].add_variable(f"{variable}_complex", 
+                        fft_base[zone][instant].add_variable(f"{variable}_complex",
                                                              fft_value)
 
         return fft_base
-    
-    def psd(self, frequencies_band = (None, None), **kwargs):    
-        
+
+    def psd(self, frequencies_band = (None, None), **kwargs):
+
         if np.any(frequencies_band):
             if not isinstance(frequencies_band, (tuple, list)):
                 print("Frequencies band type can be tuple or list.")
                 raise ValueError
-            
+
             if not isinstance(frequencies_band, (tuple, list)):
                 raise TypeError("Frequencies band must be a tuple or list.")
-            
+
             if len(frequencies_band) != 2:
                 frequencies_band = [np.min(frequencies_band), np.max(frequencies_band)]
-                
+
         invariant_variables = kwargs.get("invariant_variables",
                                          Orion.DEFAULT_TIME_NAME)
-                    
+
         psd_base = Orion.Base()
         psd_base.add_zone(list(self.base.keys()))
-        
+
         for zone, instant in self.base.items():
             psd_base[zone].add_instant(instant)
-            
+
             time_name = Orion.DEFAULT_TIME_NAME[0]
             dt = (self.base[zone][instant][time_name][1] - self.base[zone][instant][time_name][0]).compute()
-            
+
             for variable, value in self.base[zone][instant].items():
-            
+
                 if variable not in invariant_variables:
-                    
-                    psd_freqs, psd_value = welch(value, fs=1/dt, 
+
+                    psd_freqs, psd_value = welch(value, fs=1/dt,
                                                  nperseg=len(value)//8)
-                     
+
                     if np.any(frequencies_band):
-                        mask = self.mask_band(psd_freqs, frequencies_band)
+                        mask = self.__mask_band(psd_freqs, frequencies_band)
                         psd_freqs = psd_freqs[mask]
                         psd_value = psd_value[mask]
-                        
+
                     psd_base[zone][instant].add_variable(
                         Orion.DEFAULT_FREQUENCY_NAME[0], psd_freqs)
                     psd_base[zone][instant].add_variable(variable, psd_value)
-                    
+
         return psd_base
-    
+
     def filter(self, **kwargs):
         """
         Apply a digital filter to the data using various filter types and configurations.
@@ -287,19 +285,19 @@ class Processor(SharedMethods):
             - 'bessel': Bessel filter.
         Default is 'butterworth'.
         :type filter_type: str, optional
-        
+
         :param cutoff: The cutoff frequency or frequencies for the filter:
             - For 'low' and 'high' filters, a single cutoff frequency.
             - For 'band' and 'stop' filters, a list or tuple of two cutoff frequencies.
         If `None`, no filtering is applied. Default is `None`.
         :type cutoff: float, list or tuple, optional
-        
+
         :param sampling_rate: The rate at which samples were taken (samples per second). Default is 1000 Hz.
         :type sampling_rate: float, optional
-        
+
         :param order: The order of the filter. Higher values mean a steeper roll-off. Default is 5.
         :type order: int, optional
-        
+
         :param btype: The type of filter to design:
             - 'low': Low-pass filter. Allows frequencies below the cutoff to pass through.
             - 'high': High-pass filter. Allows frequencies above the cutoff to pass through.
@@ -311,11 +309,11 @@ class Processor(SharedMethods):
         :return: The modified data with the filter applied.
         :rtype: dict-like (self.base)
 
-        :raises ValueError: 
+        :raises ValueError:
             - If `cutoff` is not appropriate for the specified `btype`.
             - If `cutoff` frequencies exceed the Nyquist frequency (half the sampling rate).
             - If an unsupported `filter_type` is specified.
-        
+
         .. note::
             - The Nyquist frequency is half the sampling rate, and it is used to normalize the cutoff frequency.
             - The `filtfilt` function is used for zero-phase filtering, ensuring no phase distortion.
@@ -357,60 +355,152 @@ class Processor(SharedMethods):
 
         for zone, instant in self.base.items():
             for variable_name, variable_obj in self.base[zone][instant].items():
-                self.base[zone][instant].add_variable(variable_name, 
-                                                      filtfilt(b, a, 
+                self.base[zone][instant].add_variable(variable_name,
+                                                      filtfilt(b, a,
                                                                variable_obj)
                                                       )
-                    
+
         return self.base
-    
+
     def reduce(self, factor = 2):
-        
         reduce_base = Orion.Base()
         reduce_base.add_zone(list(self.base.keys()))
         for zone, instant in self.base.items():
             reduce_base[zone].add_instant(instant)
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
-                reduce_base[zone][instant].add_variable(f"{variable_name}", 
+                reduce_base[zone][instant].add_variable(variable_name,
                                                         variable_obj[::factor])
-        
+
         return reduce_base
-    
+
+    def detrend(self, type = None, **kwargs):
+        invariant_variables = kwargs.get("invariant_variables",
+                                         Orion.DEFAULT_TIME_NAME +
+                                         Orion.DEFAULT_FREQUENCY_NAME)
+        if type is None:
+            type  = 'constant'
+
+        detrend_base = Orion.Base()
+        detrend_base.add_zone(list(self.base.keys()))
+        for zone, instant in self.base.items():
+            detrend_base[zone].add_instant(instant)
+            for variable_name, variable_obj in list(self.base[zone][instant].items()):
+                if variable_name in invariant_variables:
+                    detrend_base[zone][instant].add_variable(variable_name,
+                                                             variable_obj)
+                else:
+                    detrend_base[zone][instant].add_variable(variable_name,
+                                                             spy.signal.detrend(variable_obj, type = type))
+
+        return detrend_base
+
+
     def smooth(self, window = None, order = None, **kwargs):
-        
+
         if window is None:
             window = [5, 5, 5]
-        
+
         if order is None:
             order = 1
-        
+
         invariant_variables = kwargs.get("invariant_variables",
-                                         Orion.DEFAULT_TIME_NAME + 
+                                         Orion.DEFAULT_TIME_NAME +
                                          Orion.DEFAULT_FREQUENCY_NAME)
-        
-        first_window_size, middle_window_size, last_window_size = window
-            
+
         smooth_base = Orion.Base()
         smooth_base.add_zone(list(self.base.keys()))
         for zone, instant in self.base.items():
             smooth_base[zone].add_instant(instant)
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
                 if variable_name not in invariant_variables:
-                    
+
                     if np.issubdtype(variable_obj, np.complexfloating):
                         self.print_text("error", f"Can not smooth complex number. Variable {variable_name} is complex.")
                         raise ValueError
                     else:
-                        smoothed_variable = self.smoothing(variable_obj, 
-                                                        order, 
+                        smoothed_variable = self.smoothing(variable_obj,
+                                                        order,
                                                         *window)
-                    smooth_base[zone][instant].add_variable(f"{variable_name}", 
+                    smooth_base[zone][instant].add_variable(variable_name,
                                                             smoothed_variable)
                 else:
-                    smooth_base[zone][instant].add_variable(f"{variable_name}", 
+                    smooth_base[zone][instant].add_variable(variable_name,
                                                             variable_obj)
-                    
+
         return smooth_base
+    
+    def linear_regression(self, independent_variable_name = None):
+        
+        if independent_variable_name is None:
+            independent_variable_name = Orion.DEFAULT_TIME_NAME
+        
+        if not isinstance(independent_variable_name, list):
+            independent_variable_name = [independent_variable_name]
+        
+        variable_list = self.variables_location(self.base)
+        if not set(independent_variable_name).issubset(set(variable_list)):
+            self.print_text("error", "Predictor variable is not in the base variable (it has to be present in all instants)")
+            raise KeyError
+        
+        linear_base = Orion.Base()
+        linear_base.add_zone(list(self.base.keys()))
+        for zone, instant in self.base.items():
+            linear_base[zone].add_instant(instant)
+            independent_variable = self.base[zone][instant][independent_variable_name[0]].data
+            for variable_name, variable_obj in list(self.base[zone][instant].items()):
+                if variable_name not in independent_variable_name:
+                    y_linear_regression, *attr_values = \
+                        self.dask_linear_regression(variable_obj, 
+                                                    independent_variable, 
+                                                    stats = True)
+                        
+                    linear_base[zone][instant].add_variable(variable_name, 
+                                                           y_linear_regression)
+                        
+                    attr_names = ["slope", 'intercept', 'residual_sq_sum', 
+                                  'err_slope', 'err_intercept', 'residuals']
+                    for attr_name, attr_value in zip(attr_names, attr_values):
+                        linear_base[zone][instant][variable_name].set_attribute(attr_name, attr_value)
+                else:
+                    linear_base[zone][instant].add_variable(variable_name, variable_obj)
+        
+        return linear_base
+                    
+    @staticmethod
+    def dask_linear_regression(y, x, stats = False):
+        # Compute necessary statistics with Dask
+        x_mean = x.mean()
+        y_mean = y.mean()
+
+        # Covariance of x and y
+        cov_xy = ((x - x_mean) * (y - y_mean)).mean()
+        # Variance of x
+        var_x = ((x - x_mean) ** 2).mean()
+        # Compute slope and intercept using Dask
+        slope, intercept = da.compute(cov_xy / var_x, 
+                                      y_mean - (cov_xy / var_x) * x_mean)
+
+        # Calculate the extracted trend using the computed slope and intercept
+        y_linear_regression = slope * x + intercept
+        
+        if stats:
+            n = len(x)
+            residuals = y - y_linear_regression
+            # Residual Sum of Squares (RSS)
+            rss = (residuals ** 2).sum()
+            # Residual Standard Error (RSE)
+            rse = da.sqrt(rss / (n - 2))
+            # Variance of x (used in the denominator for standard errors)
+            var_x = ((x - x_mean) ** 2).sum()
+            # Standard error of slope
+            se_slope = rse / da.sqrt(var_x)
+            # Standard error of intercept
+            se_intercept = rse * da.sqrt((1 / n) + (x_mean ** 2 / var_x))
+
+            return y_linear_regression, slope, intercept, rse.compute(), \
+                se_slope.compute(), se_intercept.compute(), residuals
+        return y_linear_regression, slope, intercept
+
     
     @staticmethod
     def smoothing(input_signal, polyorder, first_window_size, middle_window_size, last_window_size):
@@ -421,23 +511,12 @@ class Processor(SharedMethods):
         y_smooth_middle = savgol_filter(input_signal[first_window_size:-last_window_size], middle_window_size, polyorder)
         # Last part
         y_smooth_last = savgol_filter(input_signal[-last_window_size:], last_window_size, polyorder)
-        
+
         # Concatenate the results
         output_signal_smooth = np.concatenate([y_smooth_first, y_smooth_middle, y_smooth_last])
-        
+
         return output_signal_smooth
-    
-    def __is_dask_array(self, input):
-        if not isinstance(input, da.Array):
-            return da.from_array(input, chunks=(len(input),))
-        return input
-    
-    def __rechunk_array(self, input):
-        input = self.__is_dask_array(input)
-        if input.chunks[0][0] != len(input):
-            return input.rechunk((len(input),))
-        return input
-    
+
     @staticmethod
     def compute_transfer_function(input_signal, output_signal, time, order = (1, 2),
                               method = 'scipy_minimize', initial_params = None,
@@ -446,8 +525,8 @@ class Processor(SharedMethods):
         Compute the transfer function between input and output signals.
 
         Parameters:
-        - input_signal: array-like, the input force signal.
-        - output_signal: array-like, the output displacement signal.
+        - input_signal: array-like, the input force spy.signal.
+        - output_signal: array-like, the output displacement spy.signal.
         - time: array-like, time vector corresponding to the signals.
         - order: tuple of (numerator_order, denominator_order) for the transfer function.
         - method: str, method to use for system identification ('scipy_minimize', 'arx', 'prony', 'pem').
@@ -455,10 +534,10 @@ class Processor(SharedMethods):
         - freq_range: tuple of (min_freq, max_freq) for frequency response. If None, uses default range.
 
         Returns:
-        - system_optimized: scipy.signal.TransferFunction object, the optimized transfer function.
+        - system_optimized: scipy.spy.signal.TransferFunction object, the optimized transfer function.
         - result_dict: dictionary containing Bode plot data and additional information.
         """
-        input_signal, output_signal, time = map(Processor.prepare_data, [input_signal, output_signal, time])
+        input_signal, output_signal, time = map(Processor.dask_to_numpy, [input_signal, output_signal, time])
 
         # Ensure uniform time intervals
         if np.max(np.diff(time)) != np.min(np.diff(time)):
@@ -470,47 +549,34 @@ class Processor(SharedMethods):
         if initial_params is None:
             initial_params = np.ones(num_order + den_order + 1)
 
-        if method == 'scipy_minimize':
-            params_optimized = Processor.fit_scipy_minimize(num_order, den_order, 
-                                                            initial_params, 
-                                                            input_signal, 
-                                                            output_signal, 
-                                                            time)
-        elif method == 'arx':
-            params_optimized = Processor.fit_arx(num_order, den_order, 
-                                                 input_signal, output_signal)
-        elif method == 'prony':
-            params_optimized = Processor.fit_prony(num_order, den_order, 
-                                                   output_signal)
-        elif method == 'pem':
-            params_optimized = Processor.fit_pem(num_order, den_order, 
-                                                 input_signal, output_signal)
-        else:
-            raise ValueError("Unsupported method. Use 'scipy_minimize', 'arx', 'prony', or 'pem'.")
+        params_optimized = Processor.fit_scipy_minimize(num_order, den_order,
+                                                        initial_params,
+                                                        input_signal,
+                                                        output_signal,
+                                                        time)
 
         num_optimized = params_optimized[:num_order + 1]
         den_optimized = np.concatenate(([1.], params_optimized[num_order + 1:]))
-
-        system_optimized = signal.TransferFunction(num_optimized, den_optimized)
+        system_optimized = spy.signal.TransferFunction(num_optimized, den_optimized)
 
         # Check stability
         is_stable = np.all(np.real(np.roots(den_optimized)) < 0)
 
         # Compute frequency response
         if freq_range:
-            w = np.logspace(np.log10(freq_range[0]), np.log10(freq_range[1]), 
+            w = np.logspace(np.log10(freq_range[0]), np.log10(freq_range[1]),
                             num=1000)
         else:
             w = None
 
         # Correctly compute Bode plot for continuous-time transfer function
         if system_optimized.dt is None:
-            w, mag, phase = signal.bode(system_optimized, w=w)
+            w, mag, phase = spy.signal.bode(system_optimized, w=w)
         else:
-            w, mag, phase = signal.dlti(system_optimized).bode(w=w)
+            w, mag, phase = spy.signal.dlti(system_optimized).bode(w=w)
 
         # Compute additional frequency response plots
-        w, h = signal.freqs(num_optimized, den_optimized, w)
+        w, h = spy.signal.freqs(num_optimized, den_optimized, w)
 
         result_dict = {
             'frequencies': w,
@@ -527,109 +593,65 @@ class Processor(SharedMethods):
         return system_optimized, result_dict
 
     @staticmethod
-    def mask_band(input_signal, band):
+    def dask_to_numpy(input):
+        if isinstance(input, da.Array):
+            return input.compute()
+        return np.asarray(input)
+
+    def __mask_band(self, input_signal, band):
         min_band, max_band = band
-        
+
         # Ensure min_band and max_band are either None or numeric
         if min_band is not None and not isinstance(min_band, (int, float)):
             raise ValueError("min_band must be a numeric value or None.")
-        
+
         if max_band is not None and not isinstance(max_band, (int, float)):
             raise ValueError("max_band must be a numeric value or None.")
-        
+
         # Handle various cases for min_band and max_band
         if min_band is not None and max_band is not None:
             if min_band >= max_band:
                 raise ValueError("min_band cannot be greater than max_band.")
             mask = (input_signal >= min_band) & (input_signal <= max_band)
-        
+
         elif min_band is not None and max_band is None:
             mask = input_signal >= min_band
-        
+
         elif min_band is None and max_band is not None:
             mask = input_signal <= max_band
-        
+
         else:
             raise ValueError("At least one of min_band or max_band must be provided.")
-        
+
         return mask
-    
-    @staticmethod
-    def prepare_data(x):
-        """ Convert Dask array to NumPy array if necessary. """
-        if isinstance(x, da.Array):
-            return x.compute()
-        return np.asarray(x)
+
+    def __numpy_to_dask(self, input, chunk_size="auto"):
+        if isinstance(input, np.ndarray):
+            return da.from_array(input, chunks=chunk_size)
+        return input
+
+    def __rechunk(self, input, chunk_size="auto"):
+        if isinstance(input, np.ndarray):
+            return self.__numpy_to_dask(input, chunk_size)
+        else:
+            return input.rechunk((chunk_size))
+
 
     @staticmethod
-    def fit_scipy_minimize(num_order, den_order, initial_params, input_signal, 
+    def fit_scipy_minimize(num_order, den_order, initial_params, input_signal,
                            output_signal, time):
         """ Fit the transfer function using scipy's minimize. """
         def fit_transfer_function(params):
             num = params[:num_order + 1]
             den = np.concatenate(([1.], params[num_order + 1:]))
-            system = signal.TransferFunction(num, den)
-            _, yout, _ = signal.lsim(system, U=input_signal, T=time)
+            system = spy.signal.TransferFunction(num, den)
+            _, yout, _ = spy.signal.lsim(system, U=input_signal, T=time)
             return np.sum((yout - output_signal) ** 2)
 
-        result = minimize(fit_transfer_function, initial_params, 
+        result = spy.optimize.minimize(fit_transfer_function, initial_params,
                           method='Nelder-Mead')
         return result.x
 
-    @staticmethod
-    def fit_arx(num_order, den_order, input_signal, output_signal):
-        """ Fit the ARX model using least squares. """
-        from scipy.linalg import lstsq
-
-        num_rows = len(input_signal) - max(num_order, den_order)
-        regressor = np.zeros((num_rows, num_order + den_order + 1))
-
-        for i in range(num_order + 1):
-            regressor[:, i] = input_signal[max(num_order, den_order) - i : len(input_signal) - i]
-
-        for j in range(1, den_order + 1):
-            regressor[:, num_order + j] = -output_signal[max(num_order, den_order) - j : len(output_signal) - j]
-
-        response = output_signal[max(num_order, den_order):]
-        params_optimized, _, _, _ = lstsq(regressor, response)
-
-        return params_optimized
-
-    @staticmethod
-    def fit_prony(num_order, den_order, output_signal):
-        """ Fit the system using the Prony method. """
-        N = len(output_signal)
-        A = np.vstack([output_signal[i:N-den_order+i] for i in range(den_order)]).T
-        b = output_signal[den_order:]
-        den_params = np.linalg.lstsq(A, b, rcond=None)[0]
-        den_params = np.concatenate(([1.], -den_params))
-
-        # Fix: Compute zeros and poles from den_params
-        system_poles = np.roots(den_params)
-        system_zeros = np.poly1d(den_params).roots
-
-        # Fit numerator based on the order and poles
-        num_params = np.polyfit(system_poles, system_zeros, num_order)
-        return np.concatenate((num_params, den_params[1:]))
-
-    @staticmethod
-    def fit_pem(num_order, den_order, input_signal, output_signal):
-        """ Fit the system using the Prediction Error Method. """
-        from scipy.linalg import lstsq
-
-        num_rows = len(input_signal) - max(num_order, den_order)
-        regressor = np.zeros((num_rows, num_order + den_order + 1))
-
-        for i in range(num_order + 1):
-            regressor[:, i] = input_signal[max(num_order, den_order) - i : len(input_signal) - i]
-
-        for j in range(1, den_order + 1):
-            regressor[:, num_order + j] = -output_signal[max(num_order, den_order) - j : len(output_signal) - j]
-
-        response = output_signal[max(num_order, den_order):]
-        params_optimized, _, _, _ = lstsq(regressor, response)
-
-        return params_optimized
 
 if __name__ == "__main__":
     # ============================ Case root path ==============================
