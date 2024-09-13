@@ -38,6 +38,8 @@
 
 ## Dataset structure
 
+The data structure of Project Orion is heavily inspired by the hierarchical data organization of both [HDF5](https://docs.alliancecan.ca/wiki/HDF5/fr) and [CGNS](https://cgns.github.io/)
+
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#0a2933', 'secondaryColor': '#00ccff', 'tertiaryColor': '#ffd700', 'mainBkg': '#0a2933', 'nodeBorder': '#00ccff', 'clusterBkg': '#0a293366', 'clusterBorder': '#00ccff', 'lineColor': '#ffd700', 'fontFamily': 'arial', 'fontSize': '14px'}}}%%
 
