@@ -1,7 +1,7 @@
-### Path and Char manipulation
+# Path and Char manipulation
 import os
 
-### Math
+# Math
 import numpy as np
 import scipy as spy
 
