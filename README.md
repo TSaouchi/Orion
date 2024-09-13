@@ -4,9 +4,9 @@
 
 # Data Processing Framework : Orion stage 1
 
-<div style="display: flex; align-items: center;">
+<div style="display: flex; align-items: left;">
     <figure>
-        <img src="Documentation\\source\\_static\\logo\\orion_logo.png" alt="Local Image" width="400" style="margin-right: 10px;">
+        <img src="Documentation\\source\\_static\\logo\\orion_logo.png" alt="Local Image" width="200" style="margin-right: 10px;">
         <figcaption style="text-align: center;">
             Orion's logo
         </figcaption>
@@ -133,7 +133,7 @@ base["zone_1"]["instant_1"].add_variable("Pressure", np.random.randint(1, 101, s
 base["zone_1"]["instant_1"]["Velocity"].set_attribute("Unit", "m/s")
 ```
 
-Or using indices rather then keys,
+Or by using indices rather than keys,
 
 ``` python
 # Add variables to the instant
