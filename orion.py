@@ -33,6 +33,7 @@ if __name__ == "__main__":
     Reader = Orion.Reader
     base = []
     
+    expression = "VelocityZ = np.diff(CoordinateZ)/(TimeValue[1] - TimeValue[0])"
     for nzone, zone in enumerate(cases["Zones"]):
         if nzone == 0:
             base_tmp = Reader(cases["Paths"][nzone], 
@@ -41,7 +42,7 @@ if __name__ == "__main__":
                                   zone_name = [zone])
             for zone, instant in base_tmp.items():
                 base_tmp[zone][instant].add_variable("CoordinateZ", 1e3*base_tmp[zone][instant]['CoordinateZ'].data)
-            # base_tmp.compute("VelocityZ = np.diff(CoordinateZ)/(TimeValue[1] - TimeValue[0])")
+            base_tmp.compute(expression)
             base.append(base_tmp)
         else:
             base_tmp = Reader(cases["Paths"][nzone], 
@@ -49,7 +50,7 @@ if __name__ == "__main__":
                         variables = cases["Variables"][nzone],
                         zone_name = [zone])
                 
-            # base_tmp.compute("VelocityZ = np.diff(CoordinateZ)/(TimeValue[1] - TimeValue[0])")
+            base_tmp.compute(expression)
             #* INFO - Resampling of the measure
             base_tmp = Processor(base_tmp).reduce(factor = 4)
             base.append(base_tmp)
