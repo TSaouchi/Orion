@@ -133,7 +133,7 @@ class TestBase(unittest.TestCase):
         
         old_stdout = sys.stdout
         sys.stdout = StringIO()
-        self.base.show(stat=True)
+        self.base.show(stats=True)
         output = sys.stdout.getvalue()
         sys.stdout = old_stdout
         expected_output = (

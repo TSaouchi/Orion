@@ -278,7 +278,7 @@ class Base(CustomAttributes):
             for future in futures:
                 future.result()
 
-    def show(self, stat = False):
+    def show(self, stats = False):
         print("Base")
         for zone_name, zone in self.zones.items():
             print(f"  Zone: {zone_name}")
@@ -289,7 +289,7 @@ class Base(CustomAttributes):
                     msg = \
                         f"      Variable: {var_name} -> " + \
                         f"Shape :{data.shape}"
-                    if stat:
+                    if stats:
                         msg += \
                             f", stats(min, mean, max): " + \
                             f"({np.round(data.min().compute(), 2)}, " + \
