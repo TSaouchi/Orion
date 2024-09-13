@@ -219,4 +219,4 @@ Base
 The Orion library is released under the Apache License, Version 2.0. See [LICENSE](LICENSE) for more information.
 
 # Author
-The Orion library was created and is maintained (in my free time ;) by Toufik Saouchi
+The Orion library was created and is maintained - in my free time ;) - by Toufik Saouchi
