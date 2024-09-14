@@ -24,7 +24,7 @@ release = version
 html_theme_options = {
     'prev_next_buttons_location': None,
     'sticky_navigation': True,
-    'navigation_depth': 4,
+    'navigation_depth': 6,
     'includehidden': True,
     'display_version': False,
 }

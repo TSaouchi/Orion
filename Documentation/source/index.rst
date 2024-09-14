@@ -60,9 +60,9 @@ Documentation tree
          :icon: code
 
          .. toctree::
-            :maxdepth: 3
+            :maxdepth: 4
 
-            dataprocessor
+            CodeSource
          
          .. toctree::
             :maxdepth: 2

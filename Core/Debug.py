@@ -14,13 +14,43 @@ Verbose = Orion.DEFAULT_VERBOSE
 debug = "--debug" in sys.argv
 
 class Debug():
+    """
+    A simple debugging utility class that provides methods for logging memory usage 
+    and setting interactive breakpoints in the script when debugging is enabled.
+
+    Attributes:
+    -----------
+    loggername : str
+        The name of the log file where debug information is written.
+    logger : logging.Logger
+        Logger object for managing logging.
+    handler : logging.FileHandler
+        Handler for writing log messages to the file.
+    formatter : logging.Formatter
+        Formatter for formatting log messages.
+    """
     #! import the logger
     #! Keep it simple and stupid for now - each debugging method is independent and redundant
     def __init__(self, loggername = "debug.log"):
+        """
+        Initialize the Debug class. The logger is only set up if the --debug flag is passed.
+
+        Parameters:
+        -----------
+        loggername : str
+            The name of the log file to store debug information. Defaults to 'debug.log'.
+        """
         if debug:
             self.loggername = loggername
 
     def memory_usage(self):
+        """
+        Logs the memory usage of all global and local objects in the script when debugging is enabled.
+
+        The method logs the memory usage in both GB and MB, detailing the memory consumption 
+        for each object, as well as the total memory usage of the script. Uses the `pympler.asizeof` 
+        to calculate memory sizes.
+        """
         if debug:
             # Create a new logger object
             self.logger = logging.getLogger("Memory usage")
@@ -51,6 +81,13 @@ class Debug():
             self.logger.debug(f"\t\tTotal: {round(total_memory_usage / (1024 ** 3), 4)} GB, {round(total_memory_usage / (1024 ** 2), 4)} MB\n")
 
     def breakpoint(self):
+        """
+        Triggers an interactive Python Debugger (pdb) breakpoint when debugging is enabled.
+
+        When called, it logs a message indicating that a breakpoint has been reached and 
+        provides an interactive session in which the user can execute commands. The output
+        of the session is written to the log file specified during initialization.
+        """
         if debug:
             self.logger = logging.getLogger("breakpoint")
             self.handler = logging.FileHandler(self.loggername, mode = "w")

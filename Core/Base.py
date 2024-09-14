@@ -9,40 +9,152 @@ from collections import OrderedDict, defaultdict
 from Core import DEFAULT_ZONE_NAME, DEFAULT_INSTANT_NAME
 
 class CustomAttributes:
+    """
+    Class to manage custom attributes in a structured way.
+    
+    Attributes
+    ----------
+    _attributes : OrderedDict
+        Internal storage for custom attributes.
+    """
     def __init__(self):
+        """Initialize an empty attribute dictionary.""" 
         self._attributes = OrderedDict()
 
     def set_attribute(self, name, value):
+        """
+        Set or update an attribute.
+
+        Parameters
+        ----------
+        name : str
+            The name of the attribute.
+        value : Any
+            The value of the attribute.
+        """
         self._attributes[name] = value
 
     def get_attribute(self, name, default = None):
+        """
+        Get the value of an attribute.
+
+        Parameters
+        ----------
+        name : str
+            The name of the attribute.
+        default : Any, optional
+            The default value to return if the attribute is not found.
+
+        Returns
+        -------
+        Any
+            The value of the attribute, or the default value if not found.
+        """
         return self._attributes.get(name, default)
 
     def delete_attribute(self, name):
+        """
+        Delete an attribute.
+
+        Parameters
+        ----------
+        name : str
+            The name of the attribute to delete.
+        """
         self._attributes.pop(name, None)
 
     def rename_attribute(self, old_name, new_name):
+        """
+        Rename an attribute.
+
+        Parameters
+        ----------
+        old_name : str
+            The current name of the attribute.
+        new_name : str
+            The new name of the attribute.
+        """
         if old_name in self._attributes:
             self._attributes[new_name] = self._attributes.pop(old_name)
 
 class Variables(CustomAttributes):
+    """
+    Class representing a variable with data and attributes.
+    
+    Attributes
+    ----------
+    data : dask.array.Array
+        The data associated with the variable.
+    """
     def __init__(self, data):
+        """
+        Initialize the Variables object.
+
+        Parameters
+        ----------
+        data : array-like
+            The input data for the variable.
+        """
         super().__init__()
         self.data = da.array(data)
 
     def __getitem__(self, key: Any):
+        """
+        Retrieve data by key.
+
+        Parameters
+        ----------
+        key : Any
+            The key for retrieving data.
+
+        Returns
+        -------
+        dask.array.Array
+            The corresponding data for the given key.
+        """
         return self.data[key]
     
     def compute(self):
+        """
+        Compute the dask array, returning a concrete result.
+        
+        Returns
+        -------
+        numpy.ndarray
+            The computed result.
+        """
         if isinstance(self.data, da.Array):
             return self.data.compute()
 
 class Instants(CustomAttributes):
+    """
+    Class to manage variables within an instant of a zone.
+
+    Attributes
+    ----------
+    variables : OrderedDict
+        Stores the variables for the instant.
+    """
     def __init__(self):
+        """
+        Initialize the Instants object with an empty set of variables.
+        """
         super().__init__()
         self.variables = OrderedDict() 
 
     def add_variable(self, name, data):
+        """
+        Add or update a variable in the instant.
+
+        If the variable already exists, the data is updated, otherwise, a new variable is created.
+
+        Parameters
+        ----------
+        name : str
+            The name of the variable.
+        data : array-like
+            The data associated with the variable, converted to a Dask array.
+        """
         if name in self.variables:
         # This line updates existing variable, not overwrite
             self.variables[name].data = da.array(data)
@@ -50,12 +162,35 @@ class Instants(CustomAttributes):
             self.variables[name] = Variables(data)
 
     def delete_variable(self, names):
+        """
+        Delete one or more variables from the instant.
+
+        Parameters
+        ----------
+        names : str or list of str
+            The name(s) of the variables to delete.
+        """
         if not isinstance(names, list):
             names = [names]
         for name in names:
             self.variables.pop(name, None)
     
     def rename_variable(self, old_names, new_names):
+        """
+        Rename one or more variables in the instant.
+
+        Parameters
+        ----------
+        old_names : str or list of str
+            The current name(s) of the variables to rename.
+        new_names : str or list of str
+            The new name(s) to assign to the variables.
+
+        Raises
+        ------
+        ValueError
+            If the number of old and new names doesn't match, or if an old name doesn't exist.
+        """
         if not isinstance(old_names, list):
             old_names = [old_names]
         if not isinstance(new_names, list):
@@ -69,12 +204,41 @@ class Instants(CustomAttributes):
             else:
                 raise ValueError(f"{old_name} not found")
 
-    def __getitem__(self, key: Union[int, str]) -> Variables:
+    def __getitem__(self, key):
+        """
+        Access a variable by name or index.
+
+        Parameters
+        ----------
+        key : int or str
+            The index or name of the variable.
+
+        Returns
+        -------
+        Variables
+            The variable associated with the given key.
+        """
         if isinstance(key, int):
             return list(self.variables.values())[key]
         return self.variables[key]
 
     def compute_variable(self, expression, variable_name):
+        """
+        Compute a variable based on a given expression.
+
+        This function lazily evaluates an expression and assigns the result to a new variable.
+
+        Parameters
+        ----------
+        expression : str
+            The mathematical expression to compute, using the existing variables.
+        variable_name : str
+            The name of the resulting variable.
+
+        Example
+        -------
+        compute_variable('var1 + var2', 'result')
+        """
         # Lazy computation of a variable
         if variable_name not in self.variables:
             exec(expression, globals(), locals())
@@ -82,19 +246,59 @@ class Instants(CustomAttributes):
             self[variable_name].compute()
     
     def items(self):
+        """
+        Iterate over the variables and their data in the instant.
+
+        Yields
+        ------
+        tuple
+            A tuple containing the variable name and its associated data.
+        """
         for variable_name, variable_obj in self.variables.items():
             yield (variable_name, variable_obj.data)
         
     def keys(self):
+        """
+        Return the keys (names) of all variables in the instant.
+
+        Returns
+        -------
+        KeysView
+            A view object that displays the variable names.
+        """
         return self.variables.keys()
     
 
 class Zones(CustomAttributes):
+    """
+    Class representing a collection of instants within a zone.
+
+    Attributes
+    ----------
+    instants : OrderedDict
+        Dictionary to store `Instants` objects, where each key is an instant name.
+    """
     def __init__(self):
+        """
+        Initialize the Zones object.
+        """
         super().__init__()
         self.instants = OrderedDict() 
 
     def add_instant(self, names) :
+        """
+        Add one or more instants to the zone.
+
+        Parameters
+        ----------
+        names : Union[str, List[str]]
+            The name or list of names of instants to add.
+
+        Example
+        -------
+        >>> zones.add_instant('instant1')
+        >>> zones.add_instant(['instant1', 'instant2'])
+        """
         if not isinstance(names, list):
             names = [names]
             
@@ -102,6 +306,19 @@ class Zones(CustomAttributes):
             self.instants[name] = Instants()
 
     def delete_instant(self, names):
+        """
+        Delete one or more instants from the zone.
+
+        Parameters
+        ----------
+        names : Union[str, List[str]]
+            The name or list of names of instants to delete.
+
+        Example
+        -------
+        >>> zones.delete_instant('instant1')
+        >>> zones.delete_instant(['instant1', 'instant2'])
+        """
         if not isinstance(names, list):
             names = [names]
             
@@ -109,6 +326,28 @@ class Zones(CustomAttributes):
             self.instants.pop(name, None)
 
     def rename_instant(self, old_names, new_names):
+        """
+        Rename one or more instants in the zone.
+
+        Parameters
+        ----------
+        old_names : Union[str, List[str]]
+            The current name or list of current names of instants to rename.
+        new_names : Union[str, List[str]]
+            The new name or list of new names for the instants.
+
+        Raises
+        ------
+        ValueError
+            If the number of old names and new names does not match.
+        ValueError
+            If an old name is not found in the instants.
+
+        Example
+        -------
+        >>> zones.rename_instant('old_instant', 'new_instant')
+        >>> zones.rename_instant(['old1', 'old2'], ['new1', 'new2'])
+        """
         if not isinstance(old_names, list):
             old_names = [old_names]
         if not isinstance(new_names, list):
@@ -123,25 +362,93 @@ class Zones(CustomAttributes):
                 raise ValueError(f"{old_name} not found")
 
     def __getitem__(self, key):
+        """
+        Get an instant by index or name.
+
+        Parameters
+        ----------
+        key : Union[int, str]
+            The index or name of the instant to retrieve.
+
+        Returns
+        -------
+        Instants
+            The `Instants` object corresponding to the given key.
+
+        Example
+        -------
+        >>> instant = zones[0]
+        >>> instant = zones['instant1']
+        """
         if isinstance(key, int):
             return list(self.instants.values())[key]
         return self.instants[key]
     
     def items(self):
+        """
+        Get an iterator over all instant and variable name pairs.
+
+        Returns
+        -------
+        Generator[Tuple[str, str], None, None]
+            An iterator yielding pairs of instant names and variable names.
+
+        Example
+        -------
+        >>> for instant_name, var_name in zones.items():
+        >>>     print(f"Instant: {instant_name}, Variable: {var_name}")
+        """
         for instant_name, instant_obj in self.instants.items():
             for var_name in instant_obj.keys():
                 yield (instant_name, var_name)
     
     def keys(self):
+        """
+        Get an iterator over the names of all instants in the zone.
+
+        Returns
+        -------
+        Generator[str, None, None]
+            An iterator yielding the names of all instants.
+
+        Example
+        -------
+        >>> for instant_name in zones.keys():
+        >>>     print(instant_name)
+        """
         return self.instants.keys()
 
 class Base(CustomAttributes):
+    """
+    Base class representing a structure containing zones and instants.
+
+    Attributes
+    ----------
+    zones : OrderedDict
+        A dictionary to store `Zones` objects, where each key represents a zone name.
+    """
     def __init__(self):
+        """
+        Initialize the Base object.
+        """
         super().__init__()
         self.zones = OrderedDict()
 
     def init(self, zones = None, instants = None):
-                
+        """
+        Initialize zones and instants. Adds default zones and instants if none are provided.
+
+        Parameters
+        ----------
+        zones : Union[str, List[str]], optional
+            The name or list of names of zones to initialize. Defaults to `DEFAULT_ZONE_NAME`.
+        instants : Union[str, List[str]], optional
+            The name or list of names of instants to initialize. Defaults to `DEFAULT_INSTANT_NAME`.
+
+        Example
+        -------
+        >>> base.init(['zone1'], ['instant1'])
+        """
         if zones is None:
             zones = DEFAULT_ZONE_NAME
         
@@ -154,9 +461,36 @@ class Base(CustomAttributes):
                 self[zone].add_instant(instant)
     
     def add(self, zones = None, instants = None):
+        """
+        Add zones and instants to the Base object.
+
+        Parameters
+        ----------
+        zones : Union[str, List[str]], optional
+            Names of the zones to add.
+        instants : Union[str, List[str]], optional
+            Names of the instants to add.
+
+        Example
+        -------
+        >>> base.add(['zone1'], ['instant1'])
+        """
         self.init(zones, instants)
 
     def add_zone(self, names):
+        """
+        Add one or more zones to the Base object.
+
+        Parameters
+        ----------
+        names : Union[str, List[str]]
+            The name or list of names of zones to add.
+
+        Example
+        -------
+        >>> base.add_zone('zone1')
+        >>> base.add_zone(['zone1', 'zone2'])
+        """
         if not isinstance(names, list):
             names = [names]
             
@@ -164,6 +498,19 @@ class Base(CustomAttributes):
             self.zones[name] = Zones()
 
     def delete_zone(self, names):
+        """
+        Delete one or more zones from the Base object.
+
+        Parameters
+        ----------
+        names : Union[str, List[str]]
+            The name or list of names of zones to delete.
+
+        Example
+        -------
+        >>> base.delete_zone('zone1')
+        >>> base.delete_zone(['zone1', 'zone2'])
+        """
         if not isinstance(names, list):
             names = [names]
             
@@ -171,7 +518,28 @@ class Base(CustomAttributes):
             self.zones.pop(name, None) 
 
     def rename_zone(self, old_names, new_names):
-        
+        """
+        Rename one or more zones in the Base object.
+
+        Parameters
+        ----------
+        old_names : Union[str, List[str]]
+            The current name or list of names of zones to rename.
+        new_names : Union[str, List[str]]
+            The new name or list of names for the zones.
+
+        Raises
+        ------
+        ValueError
+            If the number of old and new zone names does not match.
+        ValueError
+            If a zone with the old name is not found.
+
+        Example
+        -------
+        >>> base.rename_zone('old_zone', 'new_zone')
+        >>> base.rename_zone(['old1', 'old2'], ['new1', 'new2'])
+        """
         if not isinstance(old_names, list):
             old_names = [old_names]
         if not isinstance(new_names, list):
@@ -187,6 +555,25 @@ class Base(CustomAttributes):
                 raise ValueError(f"{old_name} not found")
     
     def rename_variable(self, old_names, new_names):
+        """
+        Rename one or more variables across all zones and instants.
+
+        Parameters
+        ----------
+        old_names : List[str]
+            The list of current names of variables to rename.
+        new_names : List[str]
+            The list of new names for the variables.
+
+        Raises
+        ------
+        ValueError
+            If the number of old and new variable names does not match.
+
+        Example
+        -------
+        >>> base.rename_variable(['var1'], ['new_var1'])
+        """
         if len(old_names) != len(new_names):
             raise ValueError("The number of old and new variable names must match.")
 
@@ -209,20 +596,75 @@ class Base(CustomAttributes):
                     instant.rename_variable(old_name, new_name)
 
     def __getitem__(self, key):
+        """
+        Get a zone by index or name.
+
+        Parameters
+        ----------
+        key : Union[int, str]
+            The index or name of the zone to retrieve.
+
+        Returns
+        -------
+        Zones
+            The `Zones` object corresponding to the given key.
+
+        Example
+        -------
+        >>> zone = base[0]
+        >>> zone = base['zone1']
+        """
         if isinstance(key, int):
             return list(self.zones.values())[key]
         return self.zones[key]
     
     def items(self):
+        """
+        Get an iterator over all zone and instant name pairs.
+
+        Returns
+        -------
+        Generator[Tuple[str, str], None, None]
+            An iterator yielding pairs of zone names and instant names.
+
+        Example
+        -------
+        >>> for zone_name, instant_name in base.items():
+        >>>     print(f"Zone: {zone_name}, Instant: {instant_name}")
+        """
         for zone_name, zone_obj in self.zones.items():
             for instant_name in zone_obj.keys():
                 yield (zone_name, instant_name)
     
     def keys(self):
+        """
+        Get an iterator over the names of all zones in the Base object.
+
+        Returns
+        -------
+        Generator[str, None, None]
+            An iterator yielding the names of all zones.
+
+        Example
+        -------
+        >>> for zone_name in base.keys():
+        >>>     print(zone_name)
+        """
         return self.zones.keys()
     
     def compute(self, expression):
-        """Compute a new variable based on the given expression and apply it across all zones and instants."""
+        """
+        Compute a new variable based on the given expression and apply it across all zones and instants.
+
+        Parameters
+        ----------
+        expression : str
+            The expression to compute. For example, "variable3 = variable1 * variable2".
+
+        Example
+        -------
+        >>> base.compute('variable3 = variable1 * variable2')
+        """
         # Parse the expression: "variable3 = variable1 * variable2"
         var_name, operation = expression.split('=', 1)
         var_name = var_name.strip()
@@ -279,6 +721,19 @@ class Base(CustomAttributes):
                 future.result()
 
     def show(self, stats = False):
+        """
+        Display information about the Base object, including zone, instant, and variable details.
+
+        Parameters
+        ----------
+        stats : bool, optional
+            If True, display statistics (min, mean, max) for each variable. Default is False.
+
+        Example
+        -------
+        >>> base.show()
+        >>> base.show(stats=True)
+        """
         print("Base")
         for zone_name, zone in self.zones.items():
             print(f"  Zone: {zone_name}")

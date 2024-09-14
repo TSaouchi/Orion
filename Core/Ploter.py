@@ -13,67 +13,66 @@ os.environ['VTK_SILENCE_GET_VOID_POINTER_WARNINGS'] = '1'
 
 class Plot(SharedMethods):
     """
-    A class for grouping plotting methods
+    A class for grouping plotting methods.
     """
     def __init__(self, path, dir_name_tag = "output", files_name_tag = "output_result"):
+        """
+        Initialize the Plot class with path, directory name, and file name tags.
 
+        Parameters
+        ----------
+        path : str
+            The path where the output files will be saved.
+        dir_name_tag : str, optional
+            The directory name for saving the files (default is "output").
+        files_name_tag : str, optional
+            The base name of the output files (default is "output_result").
+
+        Example
+        -------
+        >>> plot = Plot("/path/to/save", dir_name_tag="results", files_name_tag="plot_results")
+        """
         self.dir_name_tag = dir_name_tag
         self.files_name_tag = files_name_tag
         self.path = path
 
     def cartesian_plot_to_html(self, plot_dictionary, auto_open = False):
         """
-        Plot scatter points using Plotly.
+        Plot scatter points using Plotly in Cartesian coordinates.
 
-        :param plot_dictionary: A dictionary containing data for plotting.
-        :type plot_dictionary: dict
+        Parameters
+        ----------
+        plot_dictionary : dict
+            A dictionary containing data for plotting. The dictionary should contain keys
+            for 'x_axis_title', 'y_axis_title', and optionally 'z_axis_title'. Each key
+            corresponds to a dictionary with 'values', 'markers', 'lines', 'sizes', 'scale' (2D plots) and 'legend'.
+        auto_open : bool, optional
+            If True, automatically open the plot in a browser (default is False).
 
-        .. note::
-            - The dictionary should contain keys ``x_axis_title``, ``y_axis_title``, and optionally ``z_axis_title``.
-            - Each key's corresponding value should be a dictionary with keys ``values``, ``markers``, ``lines``, ``sizes``, and ``legend``.
-            - ``values`` should contain a list of values for the axis.
-            - ``markers`` (optional) should specify the marker style for each set of values and should be provided in the first dictionary.
-            It can take the following options:
-                - ``markers``: markers only (default)
-                - ``markers+lines``: markers and lines
-                - ``lines``: lines only
-            - ``lines`` (optional) should specify the line style for each set of values and should be provided in the first dictionary.
-            It can take the following options:
-                - ``lines``: lines only
-                - ``markers+lines``: markers and lines
-            - ``sizes`` (optional) should specify the marker size for each set of values and should be provided in the first dictionary.
-            - ``legend`` (optional) should specify the legend for each set of values and should be provided in the first dictionary.
-
-            - Example of input dictionary:
-
-            .. code-block:: python
-
-                plot_dictionary = {
-                    'Coordinate X' : {
-                        'values' : [base[0][0]['CoordinateX'].ravel(),
-                                    meridiane['HUB']['CoordinateX'],
-                                    meridiane['SHROUD']['CoordinateX']],
-                        'markers' : ['markers', 'lines', 'lines'],
-                        'sizes' : [1, 5, 10],
-                        'legend' : ['blade', 'hub', 'shroud']
-                    },
-                    'Coordinate Y' : {
-                        'values' : [base[0][0]['CoordinateY'].ravel(),
-                                    meridiane['HUB']['CoordinateY'],
-                                    meridiane['SHROUD']['CoordinateY']],
-                    },
-                    'Coordinate Z' : {
-                        'values' : [base[0][0]['CoordinateZ'].ravel(),
-                                    meridiane['HUB']['CoordinateZ'],
-                                    meridiane['SHROUD']['CoordinateZ']],
-                    }
+        Notes
+        -----
+        - `plot_dictionary` should have the following structure:
+        
+        Example
+        -------
+        
+        .. code-block:: python
+        
+            plot_dictionary = {
+                'Coordinate X': {
+                    'values': [x_values_1, x_values_2],
+                    'markers': ['markers', 'lines'],
+                    'sizes': [1, 5],
+                    'legend': ['Data 1', 'Data 2']
+                },
+                'Coordinate Y': {
+                    'values': [y_values_1, y_values_2],
                 }
-
-            - Example usage:
-
-            .. code-block:: python
-
-                cartesian_plot_to_html(plot_dictionary)
+            }
+        
+        Example Usage
+        -------------
+        >>> plot.cartesian_plot_to_html(plot_dictionary)
         """
         try:
             import plotly.graph_objects as go
@@ -197,51 +196,35 @@ class Plot(SharedMethods):
         """
         Plot scatter points using Plotly in polar coordinates.
 
-        :param plot_dictionary: A dictionary containing data for plotting.
-        :type plot_dictionary: dict
+        Parameters
+        ----------
+        plot_dictionary : dict
+            A dictionary containing data for plotting in polar coordinates. The dictionary should
+            contain keys 'r_axis_title' and 'theta_axis_title' with their corresponding values and optional
+            markers, lines, sizes, and legends.
+        auto_open : bool, optional
+            If True, automatically open the plot in a browser (default is False).
 
-        .. note::
-            - The dictionary should contain keys ``r_axis_title`` and ``theta_axis_title``.
-            - Each key's corresponding value should be a dictionary with keys ``values``, ``phi_values``, ``markers``, ``lines``, ``sizes``, and ``legend``.
-            - ``values`` should contain a list of radial values for the axis.
-            - ``phi_values`` should contain a list of azimuthal values for the axis.
-            - ``markers`` (optional) should specify the marker style for each set of values and should be provided in the first dictionary.
-            It can take the following options:
-                - ``markers``: markers only (default)
-                - ``markers+lines``: markers and lines
-                - ``lines``: lines only
-            - ``lines`` (optional) should specify the line style for each set of values and should be provided in the first dictionary.
-            It can take the following options:
-                - ``lines``: lines only
-                - ``markers+lines``: markers and lines
-            - ``sizes`` (optional) should specify the marker size for each set of values and should be provided in the first dictionary.
-            - ``legend`` (optional) should specify the legend for each set of values and should be provided in the first dictionary.
-
-            - Example of input dictionary:
-
-            .. code-block:: python
-
-                plot_dictionary = {
-                    'Coordinate Radius' : {
-                        'values' : [base[0][0]['CoordinateX'].ravel(),
-                                    meridiane['HUB']['CoordinateX'],
-                                    meridiane['SHROUD']['CoordinateX']],
-                        'markers' : ['markers', 'lines', 'lines'],
-                        'sizes' : [1, 5, 10],
-                        'legend' : ['blade', 'hub', 'shroud']
-                    },
-                    'Coordinate Theta' : {
-                        'values' : [base[0][0]['CoordinateY'].ravel(),
-                                    meridiane['HUB']['CoordinateY'],
-                                    meridiane['SHROUD']['CoordinateY']],
-                    }
+        Example
+        -------
+        
+        .. code-block:: python
+            
+            plot_dictionary = {
+                'Coordinate Radius': {
+                    'values': [r_values_1, r_values_2],
+                    'markers': ['markers', 'lines'],
+                    'sizes': [1, 5],
+                    'legend': ['Data 1', 'Data 2']
+                },
+                'Coordinate Theta': {
+                    'values': [theta_values_1, theta_values_2],
                 }
+            }
 
-            - Example usage:
-
-            .. code-block:: python
-
-                polar_plot_to_html(plot_dictionary)
+        Example Usage
+        -------------
+        >>> plot.polar_plot_to_html(plot_dictionary)
         """
         try:
             import plotly.graph_objects as go
