@@ -318,6 +318,9 @@ class Processor(SharedMethods):
             - The Nyquist frequency is half the sampling rate, and it is used to normalize the cutoff frequency.
             - The `filtfilt` function is used for zero-phase filtering, ensuring no phase distortion.
         """
+        invariant_variables = kwargs.get("invariant_variables",
+                                         Orion.DEFAULT_TIME_NAME +
+                                         Orion.DEFAULT_FREQUENCY_NAME)
 
         filter_type = kwargs.get('filter_type', 'butterworth')
         cutoff = kwargs.get('cutoff', None)
@@ -353,14 +356,15 @@ class Processor(SharedMethods):
         else:
             raise ValueError(f"Unsupported filter type: {filter_type}")
 
+        filter_base = copy.deepcopy(self.base)
         for zone, instant in self.base.items():
             for variable_name, variable_obj in self.base[zone][instant].items():
-                self.base[zone][instant].add_variable(variable_name,
-                                                      filtfilt(b, a,
-                                                               variable_obj)
-                                                      )
-
-        return self.base
+                if variable_name not in invariant_variables:
+                    filter_base[zone][instant].add_variable(variable_name,
+                                                        filtfilt(b, a,
+                                                                variable_obj)
+                                                        )
+        return filter_base
 
     def reduce(self, factor = 2):
         reduce_base = Orion.Base()
@@ -393,7 +397,6 @@ class Processor(SharedMethods):
                                                              spy.signal.detrend(variable_obj, type = type))
 
         return detrend_base
-
 
     def smooth(self, window = None, order = None, **kwargs):
 
@@ -428,20 +431,20 @@ class Processor(SharedMethods):
                                                             variable_obj)
 
         return smooth_base
-    
+
     def linear_regression(self, independent_variable_name = None):
-        
+
         if independent_variable_name is None:
             independent_variable_name = Orion.DEFAULT_TIME_NAME
-        
+
         if not isinstance(independent_variable_name, list):
             independent_variable_name = [independent_variable_name]
-        
+
         variable_list = self.variables_location(self.base)
         if not set(independent_variable_name).issubset(set(variable_list)):
             self.print_text("error", "Predictor variable is not in the base variable (it has to be present in all instants)")
             raise KeyError
-        
+
         linear_base = Orion.Base()
         linear_base.add_zone(list(self.base.keys()))
         for zone, instant in self.base.items():
@@ -450,22 +453,22 @@ class Processor(SharedMethods):
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
                 if variable_name not in independent_variable_name:
                     y_linear_regression, *attr_values = \
-                        self.dask_linear_regression(variable_obj, 
-                                                    independent_variable, 
+                        self.dask_linear_regression(variable_obj,
+                                                    independent_variable,
                                                     stats = True)
-                        
-                    linear_base[zone][instant].add_variable(variable_name, 
+
+                    linear_base[zone][instant].add_variable(variable_name,
                                                            y_linear_regression)
-                        
-                    attr_names = ["slope", 'intercept', 'residual_sq_sum', 
+
+                    attr_names = ["slope", 'intercept', 'residual_sq_sum',
                                   'err_slope', 'err_intercept', 'residuals']
                     for attr_name, attr_value in zip(attr_names, attr_values):
                         linear_base[zone][instant][variable_name].set_attribute(attr_name, attr_value)
                 else:
                     linear_base[zone][instant].add_variable(variable_name, variable_obj)
-        
+
         return linear_base
-                    
+
     @staticmethod
     def dask_linear_regression(y, x, stats = False):
         # Compute necessary statistics with Dask
@@ -477,12 +480,12 @@ class Processor(SharedMethods):
         # Variance of x
         var_x = ((x - x_mean) ** 2).mean()
         # Compute slope and intercept using Dask
-        slope, intercept = da.compute(cov_xy / var_x, 
+        slope, intercept = da.compute(cov_xy / var_x,
                                       y_mean - (cov_xy / var_x) * x_mean)
 
         # Calculate the extracted trend using the computed slope and intercept
         y_linear_regression = slope * x + intercept
-        
+
         if stats:
             n = len(x)
             residuals = y - y_linear_regression
@@ -501,7 +504,7 @@ class Processor(SharedMethods):
                 se_slope.compute(), se_intercept.compute(), residuals
         return y_linear_regression, slope, intercept
 
-    
+
     @staticmethod
     def smoothing(input_signal, polyorder, first_window_size, middle_window_size, last_window_size):
         # Apply Savitzky-Golay filter to different parts of the signal
