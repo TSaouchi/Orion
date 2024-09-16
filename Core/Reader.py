@@ -52,7 +52,7 @@ class Reader(SharedMethods):
         self.path = self.path_manage(path)
         self.patterns = patterns
 
-    def read_ascii(self, variables = None, file_selection = None, 
+    def read_ascii(self, variables = None, file_selection = None,
                    zone_name = Orion.DEFAULT_ZONE_NAME,
                    instant_name = Orion.DEFAULT_INSTANT_NAME, **kwargs):
 
@@ -74,12 +74,12 @@ class Reader(SharedMethods):
         for nfile, file in enumerate(files_dict):
             self.print_text('check', f"\n\t{file}")
             file_path = os.path.join(self.path, file)
-            
+
             custom_header = kwargs.get('custom_header', None)
             verbose = kwargs.get('verbose', Verbose)
-            
+
             _, file_data = self.__read_ascii(file_path, variables, custom_header, verbose)
-            
+
             # Create the base
             for variable in file_data:
                 base[zone_name[0]][nfile].add_variable(self._remove_spaces(variable),
@@ -87,14 +87,14 @@ class Reader(SharedMethods):
                                                                 errors='coerce'
                                                                 ).dropna().to_numpy())
         return self.variable_mapping_cgns(base)
-    
+
     def read_mat(self, variables = None, file_selection = None, zone_name = Orion.DEFAULT_ZONE_NAME,
                    instant_name = Orion.DEFAULT_INSTANT_NAME):
 
         if variables is None:
             self.print_text("error", "We hate none HDF5 .mat files structure, thus give us a sequence of variables to read")
             raise ValueError
-        
+
         files_dict = self.__generate_file_list(self.path, self.patterns)
 
         # Selecting a file is just slicing in the files dictionary
@@ -113,11 +113,11 @@ class Reader(SharedMethods):
         for nfile, file in enumerate(files_dict):
             self.print_text('check', f"\n\t{file}")
             file_path = os.path.join(self.path, file)
-            
+
             file_data = {}
             spy.io.loadmat(file_path, mdict = file_data,
                            variable_names = variables)
-            
+
             # Create the base
             for variable in variables:
                 base[zone_name[0]][nfile].add_variable(self._remove_spaces(variable),
@@ -126,7 +126,7 @@ class Reader(SharedMethods):
 
     def _remove_spaces(self, variable):
         return re.sub(r'(?<=\S)\s+(?=\S)', '_', variable.strip())
-    
+
     def __slice_dictionary(self, dictionary, file_selection):
         if np.min(file_selection) < 1:
             self.print_text("error", "File selection must be greater than or equal to one.")
@@ -136,7 +136,7 @@ class Reader(SharedMethods):
         dictionary = {key: value for index,
                           (key, value) in enumerate(dictionary.items(),
                                                     start=1) if index >= min_value and index <= max_value}
-                                                
+
         return dictionary
 
     def __instant_naming(self, instant_name, files_dict):
@@ -194,15 +194,14 @@ class Reader(SharedMethods):
                     data_content += line
 
             clean_columns = custom_header
-            
+
         if variables is not None and custom_header is None:
             clean_columns = variables
-        
-        # Use pandas to read the data content
-        df = pd.read_csv(io.StringIO(data_content), sep=delimiter, 
-                         names=clean_columns, usecols=variables, 
-                         skipinitialspace=True)
 
+        # Use pandas to read the data content
+        df = pd.read_csv(io.StringIO(data_content), sep=delimiter,
+                         names=clean_columns, usecols=variables,
+                         skipinitialspace=True)
         if verbose:
             if header_info:
                 print("Header Information:")
