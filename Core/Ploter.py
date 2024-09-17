@@ -45,7 +45,7 @@ class Plot(SharedMethods):
         plot_dictionary : dict
             A dictionary containing data for plotting. The dictionary should contain keys
             for 'x_axis_title', 'y_axis_title', and optionally 'z_axis_title'. Each key
-            corresponds to a dictionary with 'values', 'markers', 'lines', 'sizes', 'scale' (2D plots) and 'legend'.
+            corresponds to a dictionary with 'values', 'markers', 'lines', 'sizes', 'scale' (2D plots), <axis>lim and 'legend'.
         auto_open : bool, optional
             If True, automatically open the plot in a browser (default is False).
 
@@ -63,7 +63,9 @@ class Plot(SharedMethods):
                     'values': [x_values_1, x_values_2],
                     'markers': ['markers', 'lines'],
                     'sizes': [1, 5],
-                    'legend': ['Data 1', 'Data 2']
+                    'legend': ['Data 1', 'Data 2'],
+                    'xlim' : (None, 10)
+                    'ylim' : (None, 10)
                 },
                 'Coordinate Y': {
                     'values': [y_values_1, y_values_2],
@@ -127,26 +129,31 @@ class Plot(SharedMethods):
                     fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
-                    xaxis=dict(type="log", exponentformat="e"),  # log scale for x-axis
-                    yaxis=dict(type="log", exponentformat="e")  # log scale for y-axis
+                    xaxis=dict(type="log", exponentformat="e"),  
+                    yaxis=dict(type="log", exponentformat="e")  
                 )
                 elif x_axis["scale"] in "logx":
                     fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
-                    xaxis=dict(type="log", exponentformat="e"),  # log scale for x-axis
+                    xaxis=dict(type="log", exponentformat="e"),  
                 )
                 elif x_axis["scale"] in "logy":
                     fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
-                    yaxis=dict(type="log", exponentformat="e")  # log scale for y-axis
+                    yaxis=dict(type="log", exponentformat="e")  
                 )                
             else:
-                fig.update_layout(xaxis_title = x_axis_title,
-                                yaxis_title = y_axis_title)
+                fig.update_layout(
+                    xaxis_title = x_axis_title,
+                    yaxis_title = y_axis_title
+                    )
             
-
+            if "xlim" in x_axis.keys():
+                 fig.update_xaxes(range = x_axis["xlim"])
+            if "ylim" in x_axis.keys():
+                 fig.update_yaxes(range = x_axis["ylim"])
         #:Plotting for 3D
         else:
             z_axis = plot_dictionary[z_axis_title]
@@ -180,13 +187,54 @@ class Plot(SharedMethods):
                         marker = dict(size = x_axis['sizes'][n] if 'sizes' in x_axis else 10),
                         line = dict(width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
                     ))
-            fig.update_layout(
+            
+            if 'scale' in x_axis.keys():
+                if x_axis["scale"] in "loglog":
+                    fig.update_layout(
+                    xaxis_title = x_axis_title,
+                    yaxis_title = y_axis_title,
+                    zaxis_title = z_axis_title,
+                    xaxis=dict(type="log", exponentformat="e"),  
+                    yaxis=dict(type="log", exponentformat="e"),  
+                    zaxis=dict(type="log", exponentformat="e")  
+                )
+                elif x_axis["scale"] in "logx":
+                    fig.update_layout(
+                    xaxis_title = x_axis_title,
+                    yaxis_title = y_axis_title,
+                    zaxis_title = z_axis_title,
+                    xaxis=dict(type="log", exponentformat="e"),  
+                )
+                elif x_axis["scale"] in "logy":
+                    fig.update_layout(
+                    xaxis_title = x_axis_title,
+                    yaxis_title = y_axis_title,
+                    zaxis_title = z_axis_title,
+                    yaxis=dict(type="log", exponentformat="e")  
+                )                
+                elif x_axis["scale"] in "logz":
+                    fig.update_layout(
+                    xaxis_title = x_axis_title,
+                    yaxis_title = y_axis_title,
+                    zaxis_title = z_axis_title,
+                    zaxis=dict(type="log", exponentformat="e")  
+                )                
+            else:
+                fig.update_layout(
                 scene = dict(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
                     zaxis_title = z_axis_title
                     )
                 )
+            
+            if "xlim" in x_axis.keys():
+                 fig.update_xaxes(range = x_axis["xlim"])
+            if "ylim" in x_axis.keys():
+                 fig.update_yaxes(range = x_axis["ylim"])
+            if "zlim" in x_axis.keys():
+                 fig.update_zaxes(range = x_axis["zlim"])
+                 
         export_path = self.export_path_check()
         output_path = os.path.join(export_path, self.files_name_tag)
         self.print_text("check", f"\n\tHTML Plot produced in : {output_path}")
