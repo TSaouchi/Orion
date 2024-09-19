@@ -182,7 +182,8 @@ class Processor(SharedMethods):
                 frequencies_band = [np.min(frequencies_band), np.max(frequencies_band)]
 
         if decomposition_type not in ["im/re", "mod/phi", "both", 'complex']:
-            raise ValueError("Invalid decomposition_type. Choose from 'im/re', 'mod/phi', complex, or 'both'.")
+            raise ValueError("Invalid decomposition_type. Choose from 'im/re'," 
+                             "'mod/phi', complex, or 'both'.")
 
         fft_base = Orion.Base()
         fft_base.add_zone(list(self.base.keys()))
@@ -190,8 +191,10 @@ class Processor(SharedMethods):
         for zone, instant in self.base.items():
             fft_base[zone].add_instant(instant)
 
+            # Compute the sampling frequency for each variable fs = 1/dt
             time_name = Orion.DEFAULT_TIME_NAME[0]
-            dt = (self.base[zone][instant][time_name][1] - self.base[zone][instant][time_name][0]).compute()
+            dt = (self.base[zone][instant][time_name][1] - \
+                self.base[zone][instant][time_name][0]).compute()
 
             for variable, value in self.base[zone][instant].items():
 
@@ -199,10 +202,11 @@ class Processor(SharedMethods):
                     # Compute the FFT using Dask
                     fft_value = da.fft.fft(value, axis=0)
                     fft_freqs = da.fft.fftfreq(len(value), d=dt)
+                    
                     # Only take the positive frequencies (since FFT is symmetric)
-
                     if np.any(frequencies_band):
-                        mask = self.__mask_band(fft_freqs[:len(fft_freqs)//2], frequencies_band)
+                        mask = self.__mask_band(fft_freqs[:len(fft_freqs)//2], 
+                                                frequencies_band)
                         fft_value = fft_value[:len(fft_value)//2][mask.compute()]
                         fft_freqs = fft_freqs[:len(fft_freqs)//2][mask.compute()]
                     else:
@@ -367,6 +371,24 @@ class Processor(SharedMethods):
         return filter_base
 
     def reduce(self, factor = 2):
+        """
+        Reduce the size of each variable in the base by a given factor.
+
+        Parameters
+        ----------
+        factor : int, optional
+            The reduction factor for the variables. Default is 2, meaning every other
+            value will be taken.
+
+        Returns
+        -------
+        reduce_base : Orion.Base
+            A new base object with the reduced variables.
+
+        Example
+        -------
+        >>> reduced_base = base.reduce(factor=2)
+        """
         reduce_base = Orion.Base()
         reduce_base.add_zone(list(self.base.keys()))
         for zone, instant in self.base.items():
@@ -378,6 +400,27 @@ class Processor(SharedMethods):
         return reduce_base
 
     def detrend(self, type = None, **kwargs):
+        """
+        Detrend the variables in the base object, removing a specified trend type from the data.
+
+        Parameters
+        ----------
+        type : str, optional
+            Type of detrending to apply. Options include 'constant' or 'linear'. Default is 'constant'.
+        **kwargs : dict, optional
+            Additional arguments, including:
+            - invariant_variables : list or str, optional
+                Variables that should not be detrended. Defaults to time and frequency variables.
+
+        Returns
+        -------
+        detrend_base : Orion.Base
+            A new base object with the detrended variables.
+
+        Example
+        -------
+        >>> detrended_base = base.detrend(type='linear')
+        """
         invariant_variables = kwargs.get("invariant_variables",
                                          Orion.DEFAULT_TIME_NAME +
                                          Orion.DEFAULT_FREQUENCY_NAME)
@@ -399,7 +442,34 @@ class Processor(SharedMethods):
         return detrend_base
 
     def smooth(self, window = None, order = None, **kwargs):
+        """
+        Apply a smoothing filter to the variables in the base object.
 
+        Parameters
+        ----------
+        window : list of int, optional
+            The size of the smoothing window along each axis. Default is [5, 5, 5].
+        order : int, optional
+            The order of the smoothing filter. Default is 1.
+        **kwargs : dict, optional
+            Additional arguments, including:
+            - invariant_variables : list or str, optional
+                Variables that should not be smoothed. Defaults to time and frequency variables.
+
+        Returns
+        -------
+        smooth_base : Orion.Base
+            A new base object with the smoothed variables.
+
+        Raises
+        ------
+        ValueError
+            If an attempt is made to smooth complex number data.
+
+        Example
+        -------
+        >>> smoothed_base = base.smooth(window=[3, 3, 3], order=2)
+        """
         if window is None:
             window = [5, 5, 5]
 
@@ -433,7 +503,34 @@ class Processor(SharedMethods):
         return smooth_base
 
     def linear_regression(self, independent_variable_name = None):
+        """
+        Perform linear regression on the variables in the base object using the specified independent variable.
 
+        Parameters
+        ----------
+        independent_variable_name : str or list of str, optional
+            The name of the independent variable (predictor) to be used for the regression. 
+            If not provided, defaults to the default time variable in Orion.
+
+        Returns
+        -------
+        linear_base : Orion.Base
+            A new base object with the regression results for the dependent variables.
+
+        Raises
+        ------
+        KeyError
+            If the specified independent variable is not present in all instants of the base object.
+
+        Notes
+        -----
+        - For each dependent variable (excluding the independent variable), a linear regression is performed.
+        - Regression attributes such as slope, intercept, residual sum of squares, and errors are stored as variable attributes.
+
+        Example
+        -------
+        >>> linear_base = base.linear_regression(independent_variable_name='Time')
+        """
         if independent_variable_name is None:
             independent_variable_name = Orion.DEFAULT_TIME_NAME
 
@@ -471,6 +568,42 @@ class Processor(SharedMethods):
 
     @staticmethod
     def dask_linear_regression(y, x, stats = False):
+        """
+        Perform linear regression on arrays using Dask for parallel computation, optionally returning statistical metrics.
+
+        Parameters
+        ----------
+        y : dask.array.Array
+            Dependent variable (response) array.
+        x : dask.array.Array
+            Independent variable (predictor) array.
+        stats : bool, optional
+            If True, return additional statistical metrics such as residuals and standard errors. Default is False.
+
+        Returns
+        -------
+        y_linear_regression : dask.array.Array
+            The predicted values from the linear regression.
+        slope : float
+            The slope of the linear regression line.
+        intercept : float
+            The intercept of the linear regression line.
+        
+        If stats=True, additionally returns:
+        rse : float
+            Residual Standard Error.
+        se_slope : float
+            Standard error of the slope.
+        se_intercept : float
+            Standard error of the intercept.
+        residuals : dask.array.Array
+            The residuals (differences between the actual and predicted values).
+
+        Example
+        -------
+        >>> y_pred, slope, intercept = Processor.dask_linear_regression(y, x)
+        >>> y_pred, slope, intercept, rse, se_slope, se_intercept, residuals = Processor.dask_linear_regression(y, x, stats=True)
+        """
         # Compute necessary statistics with Dask
         x_mean = x.mean()
         y_mean = y.mean()
@@ -507,6 +640,31 @@ class Processor(SharedMethods):
 
     @staticmethod
     def smoothing(input_signal, polyorder, first_window_size, middle_window_size, last_window_size):
+        """
+        Apply Savitzky-Golay filter to smooth different parts of the signal with varying window sizes.
+
+        Parameters
+        ----------
+        input_signal : numpy.array
+            The input signal to be smoothed.
+        polyorder : int
+            The order of the polynomial to use in the Savitzky-Golay filter.
+        first_window_size : int
+            The window size for smoothing the first part of the signal.
+        middle_window_size : int
+            The window size for smoothing the middle part of the signal.
+        last_window_size : int
+            The window size for smoothing the last part of the signal.
+
+        Returns
+        -------
+        output_signal_smooth : numpy.array
+            The smoothed signal obtained by applying the Savitzky-Golay filter to different parts of the input signal.
+
+        Example
+        -------
+        >>> smoothed_signal = Processor.smoothing(input_signal, polyorder=3, first_window_size=5, middle_window_size=11, last_window_size=5)
+        """
         # Apply Savitzky-Golay filter to different parts of the signal
         # First part
         y_smooth_first = savgol_filter(input_signal[:first_window_size], first_window_size, polyorder)
@@ -525,20 +683,45 @@ class Processor(SharedMethods):
                               method = 'scipy_minimize', initial_params = None,
                               freq_range = None):
         """
-        Compute the transfer function between input and output signals.
+        Compute the transfer function between input and output signals using optimization.
 
-        Parameters:
-        - input_signal: array-like, the input force spy.signal.
-        - output_signal: array-like, the output displacement spy.signal.
-        - time: array-like, time vector corresponding to the signals.
-        - order: tuple of (numerator_order, denominator_order) for the transfer function.
-        - method: str, method to use for system identification ('scipy_minimize', 'arx', 'prony', 'pem').
-        - initial_params: array-like, initial guess for coefficients. If None, defaults to ones.
-        - freq_range: tuple of (min_freq, max_freq) for frequency response. If None, uses default range.
+        Parameters
+        ----------
+        input_signal : numpy.array or dask.array
+            The input signal to the system.
+        output_signal : numpy.array or dask.array
+            The output signal from the system.
+        time : numpy.array or dask.array
+            Time values corresponding to the signals.
+        order : tuple of int, optional
+            The order of the numerator and denominator of the transfer function. Default is (1, 2).
+        method : str, optional
+            The optimization method to use. Default is 'scipy_minimize'.
+        initial_params : array-like, optional
+            Initial guess for the transfer function parameters. If None, defaults to ones. Default is None.
+        freq_range : tuple of float, optional
+            The frequency range for computing the frequency response. If None, uses a default range. Default is None.
 
-        Returns:
-        - system_optimized: scipy.spy.signal.TransferFunction object, the optimized transfer function.
-        - result_dict: dictionary containing Bode plot data and additional information.
+        Returns
+        -------
+        system_optimized : scipy.signal.TransferFunction
+            The optimized transfer function system.
+        result_dict : dict
+            A dictionary containing the computed results including:
+            - 'frequencies': Frequency values.
+            - 'magnitude': Magnitude of the frequency response.
+            - 'phase': Phase of the frequency response.
+            - 'is_stable': Boolean indicating whether the system is stable.
+            - 'nyquist': Frequency response for the Nyquist plot.
+            - 'coherence': Coherence between input and output signals.
+            - 'params': Optimized parameters of the transfer function.
+            - 'method': The optimization method used.
+            - 'order': The order of the numerator and denominator.
+
+        Example
+        -------
+        >>> system_optimized, result = Processor.compute_transfer_function(input_signal, output_signal, time, order=(1, 2))
+
         """
         input_signal, output_signal, time = map(Processor.dask_to_numpy, [input_signal, output_signal, time])
 
@@ -597,11 +780,128 @@ class Processor(SharedMethods):
 
     @staticmethod
     def dask_to_numpy(input):
+        """
+        Convert a Dask array or any array-like input to a NumPy array.
+
+        Parameters
+        ----------
+        input : dask.array.Array or array-like
+            The input data to convert. If it's a Dask array, it will be computed and converted to a NumPy array. 
+            If it's already a NumPy array or similar, it will be converted to a NumPy array without additional computation.
+
+        Returns
+        -------
+        numpy.ndarray
+            The converted NumPy array.
+
+        Example
+        -------
+        >>> import dask.array as da
+        >>> dask_array = da.from_array(np.array([1, 2, 3]), chunks=1)
+        >>> numpy_array = Processor.dask_to_numpy(dask_array)
+        >>> print(numpy_array)
+        [1 2 3]
+
+        """
         if isinstance(input, da.Array):
             return input.compute()
         return np.asarray(input)
 
+    @staticmethod
+    def fit_scipy_minimize(num_order, den_order, initial_params, input_signal,
+                           output_signal, time):
+        """
+        Fit a transfer function to data using SciPy's minimize function.
+
+        Parameters
+        ----------
+        num_order : int
+            The order of the numerator polynomial of the transfer function.
+            
+        den_order : int
+            The order of the denominator polynomial of the transfer function.
+            
+        initial_params : array-like
+            Initial guess for the parameters of the transfer function. This should be a 1D array where
+            the first `num_order + 1` elements are the numerator coefficients and the remaining elements
+            are the denominator coefficients (excluding the leading 1 which is implicitly part of the denominator).
+            
+        input_signal : array-like
+            The input signal data used for fitting the transfer function.
+            
+        output_signal : array-like
+            The output signal data used for fitting the transfer function. This is compared to the response of
+            the transfer function to the `input_signal`.
+            
+        time : array-like
+            The time vector corresponding to the `input_signal` and `output_signal`.
+
+        Returns
+        -------
+        numpy.ndarray
+            The optimized parameters of the transfer function. This array contains the numerator coefficients
+            followed by the denominator coefficients (excluding the leading 1).
+
+        Example
+        -------
+        >>> num_order = 2
+        >>> den_order = 2
+        >>> initial_params = np.array([1, 1, 1, 1])
+        >>> input_signal = np.array([0, 1, 2, 3])
+        >>> output_signal = np.array([0, 0.9, 1.8, 2.7])
+        >>> time = np.array([0, 1, 2, 3])
+        >>> optimized_params = Processor.fit_scipy_minimize(num_order, den_order, initial_params, input_signal, output_signal, time)
+        >>> print(optimized_params)
+        [0.9 0.8 1.1 0.7]
+        """
+        
+        """ Fit the transfer function using scipy's minimize. """
+        def fit_transfer_function(params):
+            num = params[:num_order + 1]
+            den = np.concatenate(([1.], params[num_order + 1:]))
+            system = spy.signal.TransferFunction(num, den)
+            _, yout, _ = spy.signal.lsim(system, U=input_signal, T=time)
+            return np.sum((yout - output_signal) ** 2)
+
+        result = spy.optimize.minimize(fit_transfer_function, initial_params,
+                          method='Nelder-Mead')
+        return result.x
+    
     def __mask_band(self, input_signal, band):
+        """
+        Create a boolean mask for the input signal based on the specified frequency band.
+
+        Parameters
+        ----------
+        input_signal : array-like
+            The signal data to be masked. This could be a NumPy array or a similar array-like structure.
+            
+        band : tuple
+            A tuple defining the frequency band for masking. The tuple should contain two elements:
+            - min_band : float or None
+                The minimum value of the frequency band. If None, no lower bound is applied.
+            - max_band : float or None
+                The maximum value of the frequency band. If None, no upper bound is applied.
+
+        Returns
+        -------
+        numpy.ndarray
+            A boolean array where True indicates that the corresponding values in `input_signal` fall within the specified band.
+
+        Raises
+        ------
+        ValueError
+            If `min_band` is greater than or equal to `max_band`, or if neither `min_band` nor `max_band` is provided, or if either `min_band` or `max_band` is not a numeric value (when not None).
+
+        Example
+        -------
+        >>> input_signal = np.array([1, 2, 3, 4, 5])
+        >>> band = (2, 4)
+        >>> mask = self.__mask_band(input_signal, band)
+        >>> print(mask)
+        [False  True  True  True False]
+
+        """
         min_band, max_band = band
 
         # Ensure min_band and max_band are either None or numeric
@@ -629,50 +929,75 @@ class Processor(SharedMethods):
         return mask
 
     def __numpy_to_dask(self, input, chunk_size="auto"):
+        """
+        Convert a NumPy array to a Dask array with specified chunk size.
+
+        Parameters
+        ----------
+        input : numpy.ndarray or other
+            The input data to convert. If it is a NumPy array, it will be converted to a Dask array.
+            
+        chunk_size : int, tuple, or "auto", optional
+            The chunk size to use for the Dask array. If "auto", the default chunk size will be used.
+            If an integer, it will be used for all dimensions. If a tuple, it specifies chunk sizes for
+            each dimension. Default is "auto".
+
+        Returns
+        -------
+        dask.array.Array or other
+            The converted Dask array if the input was a NumPy array. If the input was not a NumPy array,
+            it is returned unchanged.
+
+        Example
+        -------
+        >>> import numpy as np
+        >>> import dask.array as da
+        >>> arr = np.array([1, 2, 3, 4, 5])
+        >>> dask_arr = __numpy_to_dask(arr, chunk_size=2)
+        >>> type(dask_arr)
+        <class 'dask.array.core.Array'>
+        
+        """
         if isinstance(input, np.ndarray):
             return da.from_array(input, chunks=chunk_size)
         return input
 
     def __rechunk(self, input, chunk_size="auto"):
+        """
+        Rechunk an array or convert a NumPy array to a Dask array with specified chunk size.
+
+        Parameters
+        ----------
+        input : numpy.ndarray or dask.array.Array
+            The input data to rechunk. If it is a NumPy array, it will be converted to a Dask array
+            and rechunked. If it is already a Dask array, its chunks will be adjusted.
+            
+        chunk_size : int, tuple, or "auto", optional
+            The chunk size to use for the Dask array. If "auto", the default chunk size will be used.
+            If an integer, it will be used for all dimensions. If a tuple, it specifies chunk sizes for
+            each dimension. Default is "auto".
+
+        Returns
+        -------
+        dask.array.Array or other
+            The rechunked Dask array if the input was a NumPy array. If the input was already a Dask array,
+            it returns the rechunked array.
+
+        Example
+        -------
+        >>> import numpy as np
+        >>> import dask.array as da
+        >>> arr = np.array([1, 2, 3, 4, 5])
+        >>> rechunked_arr = __rechunk(arr, chunk_size=2)
+        >>> type(rechunked_arr)
+        <class 'dask.array.core.Array'>
+        
+        >>> dask_arr = da.from_array([1, 2, 3, 4, 5], chunks=2)
+        >>> rechunked_dask_arr = __rechunk(dask_arr, chunk_size=3)
+        >>> rechunked_dask_arr.chunks
+        ((3,),)
+        """
         if isinstance(input, np.ndarray):
             return self.__numpy_to_dask(input, chunk_size)
         else:
             return input.rechunk((chunk_size))
-
-
-    @staticmethod
-    def fit_scipy_minimize(num_order, den_order, initial_params, input_signal,
-                           output_signal, time):
-        """ Fit the transfer function using scipy's minimize. """
-        def fit_transfer_function(params):
-            num = params[:num_order + 1]
-            den = np.concatenate(([1.], params[num_order + 1:]))
-            system = spy.signal.TransferFunction(num, den)
-            _, yout, _ = spy.signal.lsim(system, U=input_signal, T=time)
-            return np.sum((yout - output_signal) ** 2)
-
-        result = spy.optimize.minimize(fit_transfer_function, initial_params,
-                          method='Nelder-Mead')
-        return result.x
-
-
-if __name__ == "__main__":
-    # ============================ Case root path ==============================
-    # Case Root Path
-    path = r"T:\CSprojects\CS-projects\CS13124  CV-RTD valve ext\BHG_Data"
-    case_path = SharedMethods().path_manage(path)
-
-    # Inputs Path
-    input_common_path = os.path.join(case_path, "EWR13124-876", "G60_Perfo")
-    input_name_patterns = [
-        "G60-<instant>.MAT"
-        ]
-    # ============================== Read inputs ===============================
-    file_dic = Reader(input_common_path, input_name_patterns).read_mat()
-
-
-    file_path = os.path.join(input_common_path, list(file_dic.keys())[0])
-    file = spy.io.loadmat(file_path)
-
-
-    # ============================= Data manipulation ==========================
