@@ -2,7 +2,10 @@
   <strong style="font-size: 24px; color: red;">🚧 Work in Progress 🚧</strong>
 </p>
 
-![logo](Documentation/source/_static/logo/orion_logo.png "Orion")
+<p align="center">
+  <img src="Documentation/source/_static/logo/orion_logo.png" alt="Orion" width="200" />
+</p>
+
 [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg "Apache License, Version 2.0.")](LICENSE)
 
 # About
