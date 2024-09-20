@@ -9,7 +9,7 @@
 [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg "Apache License, Version 2.0.")](LICENSE)
 
 # About
-This repository contains a Python-based framework for post-processing large-scale data. The framework is built to handle multi-dimensional data across different zones, instants, and variables, offering scalable and parallelized computation.
+This repository provides a Python-based API for post-processing large-scale data. The API is designed to handle multi-dimensional data across various zones, time instants, and variables, offering scalable and parallelized computation capabilities.
 
 ## Table of Contents
 
@@ -91,6 +91,8 @@ The project documentation is generated using [Sphinx](https://www.sphinx-doc.org
 
 ### Basic Example
 
+> Code lines
+
 ```python
 import numpy as np
 
@@ -104,6 +106,8 @@ base.init(['zone_1', 'zone_2'], ['instant_1', 'instant_2'])
 # Explore the base
 base.show()
 ```
+
+> Output
 
 ```consol
 ========================================================
@@ -122,6 +126,8 @@ Base
     Instant: instant_2
 ```
 
+> Code lines
+
 ``` python
 # Add variables to the instant
 base["zone_1"]["instant_1"].add_variable("Velocity", np.random.randint(1, 101, size=(8, 30)))
@@ -130,6 +136,8 @@ base["zone_1"]["instant_1"]["Velocity"].set_attribute("Unit", "m/s")
 ```
 
 Or by using indices rather than keys,
+
+> Code lines
 
 ``` python
 # Add variables to the instant
@@ -141,6 +149,8 @@ base[0][0][0].set_attribute("Unit", "m/s")
 base.show()
 base[0][0][0]._attributes
 ```
+
+> Output
 
 ```consol
 Base
@@ -156,6 +166,8 @@ Base
 OrderedDict([('Unit', 'm/s')])
 ```
 
+> Code lines
+
 ```python
 # Compute accross all the base using literal expressions
 base[0][0].add_variable("Density", 1.08)
@@ -164,6 +176,8 @@ base.compute("Ratio = Pressure/(Density*pow(Velocity, 2))")
 # Explore the base
 base.show(stats = True)
 ```
+
+> Output
 
 ```consol
 Base
@@ -183,6 +197,8 @@ The use of Orion will largely depend on the user's experience with Python. Orion
 
 For example, the compute method performs computations only when the variables in the expression are present in the instance. Otherwise, the expression is evaluated in parallel across all instances, and the results are always returned in a Dask array format.
 
+> Code lines
+
 ```python
 # Compute 
 base.compute("Element_number = 5")
@@ -190,6 +206,8 @@ base.compute("Element_number = 5")
 # Explore the base
 base.show(stats = True)
 ```
+
+> Output
 
 ```consol
 Base
@@ -208,9 +226,6 @@ Base
     Instant: instant_2
       Variable: Element_number -> Shape :(), stats(min, mean, max): (5, 5.0, 5)
 ```
-
-# License
-The Orion library is released under the Apache License, Version 2.0. See [LICENSE](LICENSE) for more information.
 
 # Author
 The Orion library was created and is maintained - in my free time ;) - by Toufik Saouchi
