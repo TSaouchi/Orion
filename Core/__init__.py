@@ -18,12 +18,14 @@ DEFAULT_SIMULATION_SETTINGS = {
     'max_iterations': 1000
 }
 DEFAULT_TIME_NAME = ['TimeValue']
+DEFAULT_TIMESTEP_NAME = ['TimeStep']
 DEFAULT_FREQUENCY_NAME = ['Frequency']
 DEFAULT_COORDINATE_NAMES = ['CoordinateX','CoordinateY','CoordinateZ']
 
 DEFAULT_VAR_SYNONYMS = {
 
             DEFAULT_TIME_NAME[0] : ['t', 'Temps', 'Time', 'time'],
+            DEFAULT_TIMESTEP_NAME[0] : ['dt', 'Deltat', 'time_step'],
             DEFAULT_FREQUENCY_NAME[0] : ['frequency'],
             DEFAULT_COORDINATE_NAMES[0] : ['X', 'x'],
             DEFAULT_COORDINATE_NAMES[1] : ['Y', 'y'],
@@ -111,6 +113,7 @@ __all__ = [
     'DEFAULT_VERBOSE',
     'DEFAULT_VAR_SYNONYMS',
     'DEFAULT_TIME_NAME',
+    'DEFAULT_TIMESTEP_NAME',
     'DEFAULT_FREQUENCY_NAME',
     'EDFAULT_COORDINATE_NAMES'
     # Add other module-level attributes or functions you want to expose

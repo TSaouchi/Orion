@@ -5,7 +5,6 @@ import pandas as pd
 import os
 
 from Core.Reader import Reader
-from DataProcessor import *
 
 class TestReader(unittest.TestCase):
 

@@ -124,8 +124,9 @@ class Processor(SharedMethods):
         """
         Compute the Fast Fourier Transform (FFT) of the input signal for each variable in the dataset.
 
-        :param dt: The time interval between samples in the input signal.
-        :type dt: float
+        :param time_step: The time interval between samples in the input signal.
+            - This is computed from the variable time in the instant or can be passed as an attribute of the instant, otherwiese it is set to 1.
+        :type time_step: float
         :param decomposition_type: Specifies the type of decomposition to return. Options are:
             - "im/re": Returns the real and imaginary components.
             - "mod/phi": Returns the magnitude and phase components.
@@ -169,6 +170,8 @@ class Processor(SharedMethods):
             """
         invariant_variables = kwargs.get("invariant_variables",
                                          Orion.DEFAULT_TIME_NAME)
+        time_name = Orion.DEFAULT_TIME_NAME[0]
+        time_step_name = Orion.DEFAULT_TIMESTEP_NAME[0]
 
         if np.any(frequencies_band):
             if not isinstance(frequencies_band, (tuple, list)):
@@ -192,16 +195,24 @@ class Processor(SharedMethods):
             fft_base[zone].add_instant(instant)
 
             # Compute the sampling frequency for each variable fs = 1/dt
-            time_name = Orion.DEFAULT_TIME_NAME[0]
-            dt = (self.base[zone][instant][time_name][1] - \
-                self.base[zone][instant][time_name][0]).compute()
-
+            if time_name in self.base[zone][instant].keys():
+                time_step = (self.base[zone][instant][time_name][1] - \
+                    self.base[zone][instant][time_name][0]).compute()
+            else:
+                time_step = self.base[zone][instant].get_attribute(time_step_name)
+                if time_step is None:
+                    self.print_text("warning", f"Neither TimeValue nor TimeStep were found in the variables instant: {instant} or in the instant attribute, therefore the time step is assumed to be 1/Number of points.")
+                    
             for variable, value in self.base[zone][instant].items():
 
-                if variable not in invariant_variables:
+                if variable not in invariant_variables and value is not None:
+
+                    if time_step is None:
+                        time_step = len(value)
+                        
                     # Compute the FFT using Dask
                     fft_value = da.fft.fft(value, axis=0)
-                    fft_freqs = da.fft.fftfreq(len(value), d=dt)
+                    fft_freqs = da.fft.fftfreq(len(value), d=time_step)
                     
                     # Only take the positive frequencies (since FFT is symmetric)
                     if np.any(frequencies_band):
@@ -249,6 +260,8 @@ class Processor(SharedMethods):
 
         invariant_variables = kwargs.get("invariant_variables",
                                          Orion.DEFAULT_TIME_NAME)
+        time_name = Orion.DEFAULT_TIME_NAME[0]
+        time_step_name = Orion.DEFAULT_TIMESTEP_NAME[0]
 
         psd_base = Orion.Base()
         psd_base.add_zone(list(self.base.keys()))
@@ -256,14 +269,23 @@ class Processor(SharedMethods):
         for zone, instant in self.base.items():
             psd_base[zone].add_instant(instant)
 
-            time_name = Orion.DEFAULT_TIME_NAME[0]
-            dt = (self.base[zone][instant][time_name][1] - self.base[zone][instant][time_name][0]).compute()
+           # Compute the sampling frequency for each variable fs = 1/dt
+            if time_name in self.base[zone][instant].keys():
+                time_step = (self.base[zone][instant][time_name][1] - \
+                    self.base[zone][instant][time_name][0]).compute()
+            else:
+                time_step = self.base[zone][instant].get_attribute(time_step_name)
+                if time_step is None:
+                    self.print_text("warning", f"Neither TimeValue nor TimeStep were found in the variables instant: {instant} or in the instant attribute, therefore the time step is assumed to be 1/Number of points.")
 
             for variable, value in self.base[zone][instant].items():
 
-                if variable not in invariant_variables:
+                if variable not in invariant_variables and value is not None:
 
-                    psd_freqs, psd_value = welch(value, fs=1/dt,
+                    if time_step is None:
+                        time_step = 1/len(value)
+                        
+                    psd_freqs, psd_value = welch(value, fs=1/time_step,
                                                  nperseg=len(value)//8)
 
                     if np.any(frequencies_band):
@@ -545,6 +567,10 @@ class Processor(SharedMethods):
         linear_base = Orion.Base()
         linear_base.add_zone(list(self.base.keys()))
         for zone, instant in self.base.items():
+            
+            if independent_variable_name[0] not in self.base[zone][instant].keys():
+                continue
+            
             linear_base[zone].add_instant(instant)
             independent_variable = self.base[zone][instant][independent_variable_name[0]].data
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
