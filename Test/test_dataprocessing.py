@@ -23,7 +23,7 @@ class TestProcessor(unittest.TestCase):
         # Create additional bases for fusion
         base2 = Orion.Base()
         base2.init(zones=['zone1'], instants=['t1'])
-        base2['zone1']['t1'].add_variable('var3', da.from_array(np.random.randint(0, 100, size=(3, 5))))
+        base2['zone1']['t1'].add_variable('var3', da.from_array(np.random.randint(0, 100, size=(30, 50))))
 
         result = Processor([self.base, base2]).fusion()
 

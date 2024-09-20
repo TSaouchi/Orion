@@ -196,8 +196,8 @@ class Processor(SharedMethods):
 
             # Compute the sampling frequency for each variable fs = 1/dt
             if time_name in self.base[zone][instant].keys():
-                time_step = (self.base[zone][instant][time_name][1] - \
-                    self.base[zone][instant][time_name][0]).compute()
+                time_step = (self.base[zone][instant][time_name].data.ravel()[1] - \
+                    self.base[zone][instant][time_name].data.ravel()[0]).compute()
             else:
                 time_step = self.base[zone][instant].get_attribute(time_step_name)
                 if time_step is None:
@@ -271,8 +271,8 @@ class Processor(SharedMethods):
 
            # Compute the sampling frequency for each variable fs = 1/dt
             if time_name in self.base[zone][instant].keys():
-                time_step = (self.base[zone][instant][time_name][1] - \
-                    self.base[zone][instant][time_name][0]).compute()
+                time_step = (self.base[zone][instant][time_name].data.ravel()[1] - \
+                    self.base[zone][instant][time_name].data.ravel()[0]).compute()
             else:
                 time_step = self.base[zone][instant].get_attribute(time_step_name)
                 if time_step is None:
