@@ -2,20 +2,13 @@
   <strong style="font-size: 24px; color: red;">🚧 Work in Progress 🚧</strong>
 </p>
 
-# Data Processing Framework : Orion stage 1
+![logo](Documentation\\source\\_static\\logo\\orion_logo.png "Orion")
 
-<div style="display: flex; align-items: left;">
-    <figure>
-        <img src="Documentation\\source\\_static\\logo\\orion_logo.png" alt="Local Image" width="200" style="margin-right: 10px;">
-        <figcaption style="text-align: center;">
-            Orion's logo
-        </figcaption>
-    </figure>
-    <p>
-        This repository contains a Python-based framework for post-processing large-scale data. The framework is built to handle multi-dimensional data across different zones, instants, and variables, offering scalable and parallelized computation.
-    </p>
-</div>
 
+[![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg "Apache License, Version 2.0.")](LICENSE)
+
+# About
+This repository contains a Python-based framework for post-processing large-scale data. The framework is built to handle multi-dimensional data across different zones, instants, and variables, offering scalable and parallelized computation.
 
 ## Table of Contents
 
