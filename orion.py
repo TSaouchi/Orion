@@ -12,16 +12,13 @@ if __name__ == "__main__":
     # ========================= Cases configuration ============================
     cases = {
         "Zones" : [
-            "BWI_soft_mode",
-            "Tenneco_soft_mode",
+            "",
             ],
         "Paths" : [
-            r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal\Single_measures_without_topmount\24-0052_RR_G60_1963_R2_Pink_Noise_1p6A_Sinus",
-            r"\\Frtre-fil01\delphidata\CSprojects\CS-projects\CS13124  CV-RTD valve ext\IPA_Data\EWR13124-838_XC60_Front_TENNECO\Tenneco S230307_Pink_Noise_1.6A_new_HSM"
+            "",
         ],
         "file_name_patterns" : [
-            "Pink_Noise_HA_amp<instant>",
-            "Pink_Noise_HA_amp<instant>"
+            "",
             ],
         "Variables": [
             ["Temps", "Axial Displacement", "Axial Force"],

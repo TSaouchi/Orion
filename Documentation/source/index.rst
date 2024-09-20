@@ -127,22 +127,6 @@ Work directory tree
                   </li>
                   Sphinx module
                   <li><i class="fa fa-folder"></i> Documentation</li>
-                  <li><i class="fa fa-folder-open"></i> Reporting
-                     <ul>
-                        <li><i class="fa fa-folder"></i> Sphinx</li>
-                     </ul>
-                  </li>
-                  Orion System Simulation tools
-                  <li><i class="fa fa-folder-open"></i> SystemSimulation
-                     <ul>
-                        <li><i class="fa fa-file-code"></i> amesim_treatment.py</li>
-                     </ul>
-                  </li>
-                  Orion CFD Simulation tools
-                  <li><i class="fa fa-folder-open"></i> CFDSimulation</li>
-                     <ul>
-                        <li><i class="fa fa-folder"></i> Cassiopee</li>
-                     </ul>
                   Orion's test units
                   <li><i class="fa fa-folder-open"></i> Test
                      <ul>

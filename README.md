@@ -19,7 +19,6 @@ This repository provides a Python-based API for post-processing large-scale data
 - [Documentation](#Documentation)
 - [Usage](#usage)
   - [Basic Example](#basic-example)
-- [License](#license)
 
 ## Features
 
