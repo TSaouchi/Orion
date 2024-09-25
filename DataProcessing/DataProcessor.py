@@ -524,7 +524,8 @@ class Processor(SharedMethods):
 
         return smooth_base
 
-    def linear_regression(self, independent_variable_name = None, method = 'dask'):
+    def linear_regression(self, independent_variable_name = None, method = 'dask', 
+                          **kwargs):
         """
         Perform linear regression on the variables in the base object using the specified independent variable.
 
@@ -535,7 +536,7 @@ class Processor(SharedMethods):
             If not provided, defaults to the default time variable in Orion.
         method : str, optional
             The method to be used for performing the linear regression. Defaults to 'dask'.
-            Other methods are : "robust" for RANSACRegressor.
+            Other methods are : See :func:`robust_linear_regression` for more information.
 
         Returns
         -------
@@ -555,6 +556,7 @@ class Processor(SharedMethods):
         Example
         -------
         >>> linear_base = base.linear_regression(independent_variable_name='Time')
+        >>> linear_base = base.linear_regression(independent_variable_name='Time', method='Ridge', alpha=0.1)
         """
         if independent_variable_name is None:
             independent_variable_name = Orion.DEFAULT_TIME_NAME
@@ -578,16 +580,18 @@ class Processor(SharedMethods):
             independent_variable = self.base[zone][instant][independent_variable_name[0]].data
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
                 if variable_name not in independent_variable_name:
-                    if method == "robust":
-                        y_linear_regression, *attr_values = \
-                            self.robust_linear_regression(variable_obj,
-                                                        independent_variable,
-                                                        stats = True)
-                    else:
+                    if method == "dask":
                         y_linear_regression, *attr_values = \
                             self.dask_linear_regression(variable_obj,
                                                         independent_variable,
                                                         stats = True)
+                    else:
+                        y_linear_regression, *attr_values = \
+                            self.robust_linear_regression(variable_obj,
+                                                        independent_variable,
+                                                        method = method,
+                                                        stats = True,
+                                                        **kwargs)
 
                     linear_base[zone][instant].add_variable(variable_name,
                                                            y_linear_regression)
@@ -673,9 +677,9 @@ class Processor(SharedMethods):
         return y_linear_regression, slope, intercept
     
     @staticmethod
-    def robust_linear_regression(y, x, stats=False):
+    def robust_linear_regression(y, x, stats=False, method='RANSAC', **kwargs):
         """
-        Perform robust linear regression on arrays using the RANSAC algorithm, optionally returning statistical metrics.
+        Perform robust linear regression on arrays using a specified method, optionally returning statistical metrics.
 
         Parameters
         ----------
@@ -685,6 +689,8 @@ class Processor(SharedMethods):
             Independent variable (predictor) array.
         stats : bool, optional
             If True, return additional statistical metrics such as residuals and standard errors. Default is False.
+        method : str, optional
+            The regression method to use. Options include 'RANSAC', 'Huber', or 'TheilSen'. Default is 'RANSAC'.
 
         Returns
         -------
@@ -707,20 +713,39 @@ class Processor(SharedMethods):
 
         Example
         -------
-        >>> y_pred, slope, intercept = Processor.robust_linear_regression(y, x)
-        >>> y_pred, slope, intercept, rse, se_slope, se_intercept, residuals = Processor.robust_linear_regression(y, x, stats=True)
+        >>> y_pred, slope, intercept = robust_linear_regression(y, x)
+        >>> y_pred, slope, intercept, rse, se_slope, se_intercept, residuals = robust_linear_regression(y, x, stats=True)
+        >>> y_pred, slope, intercept, rse, se_slope, se_intercept, residuals = robust_linear_regression(y, x, stats=True, method="Rigide", alpha = 0.1)
         """
-        from sklearn.linear_model import RANSACRegressor
-        # Fit the RANSAC model
-        model = RANSACRegressor()
+        import numpy as np
+        from sklearn.linear_model import (RANSACRegressor, HuberRegressor, 
+                                        TheilSenRegressor, Ridge, Lasso)
+
+        # Choose the regression model based on the method parameter
+        if method == 'RANSAC':
+            model = RANSACRegressor(**kwargs)
+        elif method == 'Huber':
+            model = HuberRegressor(**kwargs)
+        elif method == 'TheilSen':
+            model = TheilSenRegressor(**kwargs)
+        elif method == 'Ridge':
+            model = Ridge(**kwargs)
+        elif method == 'Lasso':
+            model = Lasso(**kwargs)
+        else:
+            raise ValueError("Unsupported regression method. Choose 'RANSAC', 'Huber', 'TheilSen', 'Ridge', or 'Lasso'.")
+
+        # Fit the model
         model.fit(x.reshape(-1, 1), y)
-        
+
         # Get slope and intercept
-        slope = model.estimator_.coef_[0]
-        intercept = model.estimator_.intercept_
+        slope = model.estimator_.coef_[0] if hasattr(model, 'estimator_') else model.coef_[0]
+        intercept = model.estimator_.intercept_ if hasattr(model, 'estimator_') else model.intercept_
+        
+        
         # Calculate the predicted trend (y_linear_regression)
         y_linear_regression = slope * x + intercept
-        
+
         if stats:
             n = len(x)
             # Calculate residuals
@@ -739,7 +764,7 @@ class Processor(SharedMethods):
             
             return y_linear_regression, slope, intercept, rse.compute(), \
                 se_slope.compute(), se_intercept.compute(), residuals
-        
+                
         return y_linear_regression, slope, intercept
 
     
