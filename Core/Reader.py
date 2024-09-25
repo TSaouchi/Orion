@@ -38,7 +38,7 @@ class Reader(SharedMethods):
     :ivar list patterns:
         The list of file patterns to be matched.
     """
-    def __init__(self, path, patterns):
+    def __init__(self, path, patterns = None):
         """
         Initialize the Reader object with the specified path and patterns.
 
@@ -50,6 +50,8 @@ class Reader(SharedMethods):
         """
         super().__init__()
         self.path = self.path_manage(path)
+        if patterns is None:
+            patterns = '*'
         self.patterns = patterns
 
     def read_ascii(self, variables = None, file_selection = None,
@@ -389,7 +391,7 @@ class Reader(SharedMethods):
                 except:
                     return value  # Return as string if all conversion attempts fail
 
-    def __generate_file_list(self, path, patterns):
+    def __generate_file_list(self, path, patterns = None):
         """
         Generate a dictionary of files matching the specified patterns.
 
@@ -409,7 +411,8 @@ class Reader(SharedMethods):
             - If '*' is include in the pattern it will be used as a wildcard to match any character.
             - Filenames are sorted based on iteration numbers in ascending order.
         """
-
+        if patterns is None:
+            patterns = "*"
         if isinstance(patterns, list):
             patterns = patterns[0]
 
