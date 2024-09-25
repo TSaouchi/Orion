@@ -583,9 +583,7 @@ class Processor(SharedMethods):
                             self.robust_linear_regression(variable_obj,
                                                         independent_variable,
                                                         stats = True)
-                        print("toto")    
                     else:
-                        print("lala")    
                         y_linear_regression, *attr_values = \
                             self.dask_linear_regression(variable_obj,
                                                         independent_variable,
