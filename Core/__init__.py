@@ -100,7 +100,13 @@ DEFAULT_VAR_SYNONYMS = {
             'SpecificHeatRatio': ['gamma', 'Gamma', 'SpecificHeatRatio'],  #:Specific heat ratio
             'SpecificHeatPressure': ['Cp', 'cp'],  #:Specific heat at constant pressure
             'SpecificHeatVolume': ['Cv', 'cv'],  #:Specific heat at constant volume
-            'Density': ['ro', 'rho', 'density']
+            'Density': ['ro', 'rho', 'density'],
+            
+            # None CGNS nomenclature
+            'Current' : ['Courant_1'],
+            'PressureStagnationIn': ['Pressure_IN_V2_++'],
+            'PressureStagnationOut': ['Pressure_OUT_V1_R'],
+            'FlowRate' : ['Debit_Q3_V7_BHG']
         }
 
 # Package-level docstring

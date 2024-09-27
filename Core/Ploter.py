@@ -125,14 +125,14 @@ class Plot(SharedMethods):
         #:Plotting for 2D with secondary y
         elif z_axis_title is not None and x_axis.get('secondary_y', None) is not None:
             self.__2D_plot(go, fig, x_axis_title, y_axis_title, x_axis, y_axis)
-            fig.update_layout(
-                    xaxis_title = x_axis_title,
-                    yaxis_title = y_axis_title)
             
             secondary_y = True
             z_axis = plot_dictionary[z_axis_title]
             self.__2D_plot(go, fig, x_axis_title, z_axis_title, x_axis, z_axis, 
                            secondary_y = secondary_y)
+            fig.update_layout(
+                    xaxis_title = x_axis_title,
+                    yaxis_title = y_axis_title)
             fig.update_yaxes(title_text=z_axis_title, 
                              secondary_y = secondary_y)
             
