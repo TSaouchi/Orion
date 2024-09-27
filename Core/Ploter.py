@@ -64,8 +64,10 @@ class Plot(SharedMethods):
                     'markers': ['markers', 'lines'],
                     'sizes': [1, 5],
                     'legend': ['Data 1', 'Data 2'],
-                    'xlim' : (None, 10)
-                    'ylim' : (None, 10)
+                    'xlim' : (None, 10),
+                    'ylim' : (None, 10),
+                    'secondary_y' : True,
+                    'legend_secondary' : ['toto2'],
                 },
                 'Coordinate Y': {
                     'values': [y_values_1, y_values_2],
@@ -75,6 +77,22 @@ class Plot(SharedMethods):
         Example Usage
         -------------
         >>> plot.cartesian_plot_to_html(plot_dictionary)
+        # If one need to plot 2 left plots and one right plot use 
+        >>> plot_dictionary = {
+            'Time (s) - Shifted to start at zero' : {
+                'values' : [base[0][0][0].data, base[0][0][0].data],
+                'markers' : 2*['lines'],
+                'legend' : 2*['toto1'],
+                'secondary_y' : True,
+                'legend_secondary' : ['toto2'],
+            },
+            'Displacement/BMW maximum dispalcement' : {
+                'values' : [base[0][0][1].data, base[0][0][3].data]
+            },
+            'Displacement/BMW maximum ' : {
+                'values' : [base[0][0][4].data,]
+            }
+        }
         """
         try:
             import plotly.graph_objects as go
@@ -84,7 +102,6 @@ class Plot(SharedMethods):
             return
 
         self.print_text("info", "\nPlotting cartesian plot...")
-        fig = go.Figure()
 
         #:Get axis titles
         x_axis_title = list(plot_dictionary.keys())[0]
@@ -94,73 +111,47 @@ class Plot(SharedMethods):
         x_axis = plot_dictionary[x_axis_title]
         y_axis = plot_dictionary[y_axis_title]
 
+        if z_axis_title is not None and x_axis.get('secondary_y', None) is not None:
+            from plotly.subplots import make_subplots
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
+        else:
+            from plotly.subplots import make_subplots
+            fig = make_subplots(specs=[[{"secondary_y": False}]])
+            
         #:Plotting for 2D
         if z_axis_title is None:
-            for n, (x, y) in enumerate(zip(x_axis['values'], y_axis['values'])):
-                mode = x_axis.get('markers', ['markers'])[n]
-                if mode == 'lines':
-                    fig.add_trace(go.Scatter(
-                        x = x,
-                        y = y,
-                        mode = 'lines',
-                        name = x_axis['legend'][n] if 'legend' in x_axis else None,
-                        line = dict(width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
-                    ))
-                elif mode == 'markers':
-                    fig.add_trace(go.Scatter(
-                        x = x,
-                        y = y,
-                        mode = 'markers',
-                        name = x_axis['legend'][n] if 'legend' in x_axis else None,
-                        marker = dict(size = x_axis['sizes'][n] if 'sizes' in x_axis else 10)
-                    ))
-                else:
-                    fig.add_trace(go.Scatter(
-                        x = x,
-                        y = y,
-                        mode = 'markers+lines',
-                        name = x_axis['legend'][n] if 'legend' in x_axis else None,
-                        marker = dict(size = x_axis['sizes'][n] if 'sizes' in x_axis else 10),
-                        line = dict(width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
-                    ))
+            self.__2D_plot(go, fig, x_axis_title, y_axis_title, x_axis, y_axis)
+        
+        #:Plotting for 2D with secondary y
+        elif z_axis_title is not None and x_axis.get('secondary_y', None) is not None:
+            self.__2D_plot(go, fig, x_axis_title, y_axis_title, x_axis, y_axis)
+            fig.update_layout(
+                    xaxis_title = x_axis_title,
+                    yaxis_title = y_axis_title)
             
-            if 'scale' in x_axis.keys():
-                if x_axis["scale"] in "loglog":
-                    fig.update_layout(
-                    xaxis_title = x_axis_title,
-                    yaxis_title = y_axis_title,
-                    xaxis=dict(type="log", exponentformat="e"),  
-                    yaxis=dict(type="log", exponentformat="e")  
-                )
-                elif x_axis["scale"] in "logx":
-                    fig.update_layout(
-                    xaxis_title = x_axis_title,
-                    yaxis_title = y_axis_title,
-                    xaxis=dict(type="log", exponentformat="e"),  
-                )
-                elif x_axis["scale"] in "logy":
-                    fig.update_layout(
-                    xaxis_title = x_axis_title,
-                    yaxis_title = y_axis_title,
-                    yaxis=dict(type="log", exponentformat="e")  
-                )                
-            else:
-                fig.update_layout(
-                    xaxis_title = x_axis_title,
-                    yaxis_title = y_axis_title
-                    )
+            secondary_y = True
+            z_axis = plot_dictionary[z_axis_title]
+            self.__2D_plot(go, fig, x_axis_title, z_axis_title, x_axis, z_axis, 
+                           secondary_y = secondary_y)
+            fig.update_yaxes(title_text=z_axis_title, 
+                             secondary_y = secondary_y)
             
-            if "xlim" in x_axis.keys():
-                 fig.update_xaxes(range = x_axis["xlim"])
-            if "ylim" in x_axis.keys():
-                 fig.update_yaxes(range = x_axis["ylim"])
         #:Plotting for 3D
         else:
             z_axis = plot_dictionary[z_axis_title]
-            for n, (x, y, z) in enumerate(zip(x_axis['values'], y_axis['values'], z_axis['values'])):
-                mode = x_axis.get('markers', ['markers'])[n]
-                if mode == 'lines':
-                    fig.add_trace(go.Scatter3d(
+            self.__3D_plot(go, fig, x_axis_title, y_axis_title, z_axis_title, 
+                           x_axis, y_axis, z_axis)
+                 
+        export_path = self.export_path_check()
+        output_path = os.path.join(export_path, self.files_name_tag)
+        self.print_text("check", f"\n\tHTML Plot produced in : {output_path}")
+        plot(fig, filename = output_path, auto_open = auto_open)
+
+    def __3D_plot(self, go, fig, x_axis_title, y_axis_title, z_axis_title, x_axis, y_axis, z_axis):
+        for n, (x, y, z) in enumerate(zip(x_axis['values'], y_axis['values'], z_axis['values'])):
+            mode = x_axis.get('markers', ['markers'])[n]
+            if mode == 'lines':
+                fig.add_trace(go.Scatter3d(
                         x = x,
                         y = y,
                         z = z,
@@ -168,8 +159,8 @@ class Plot(SharedMethods):
                         name = x_axis['legend'][n] if 'legend' in x_axis else None,
                         line = dict(width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
                     ))
-                elif mode == 'markers':
-                    fig.add_trace(go.Scatter3d(
+            elif mode == 'markers':
+                fig.add_trace(go.Scatter3d(
                         x = x,
                         y = y,
                         z = z,
@@ -177,8 +168,8 @@ class Plot(SharedMethods):
                         name = x_axis['legend'][n] if 'legend' in x_axis else None,
                         marker = dict(size = x_axis['sizes'][n] if 'sizes' in x_axis else 10)
                     ))
-                else:
-                    fig.add_trace(go.Scatter3d(
+            else:
+                fig.add_trace(go.Scatter3d(
                         x = x,
                         y = y,
                         z = z,
@@ -188,9 +179,9 @@ class Plot(SharedMethods):
                         line = dict(width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
                     ))
             
-            if 'scale' in x_axis.keys():
-                if x_axis["scale"] in "loglog":
-                    fig.update_layout(
+        if 'scale' in x_axis.keys():
+            if x_axis["scale"] in "loglog":
+                fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
                     zaxis_title = z_axis_title,
@@ -198,29 +189,29 @@ class Plot(SharedMethods):
                     yaxis=dict(type="log", exponentformat="e"),  
                     zaxis=dict(type="log", exponentformat="e")  
                 )
-                elif x_axis["scale"] in "logx":
-                    fig.update_layout(
+            elif x_axis["scale"] in "logx":
+                fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
                     zaxis_title = z_axis_title,
                     xaxis=dict(type="log", exponentformat="e"),  
                 )
-                elif x_axis["scale"] in "logy":
-                    fig.update_layout(
+            elif x_axis["scale"] in "logy":
+                fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
                     zaxis_title = z_axis_title,
                     yaxis=dict(type="log", exponentformat="e")  
                 )                
-                elif x_axis["scale"] in "logz":
-                    fig.update_layout(
+            elif x_axis["scale"] in "logz":
+                fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
                     zaxis_title = z_axis_title,
                     zaxis=dict(type="log", exponentformat="e")  
                 )                
-            else:
-                fig.update_layout(
+        else:
+            fig.update_layout(
                 scene = dict(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
@@ -228,17 +219,83 @@ class Plot(SharedMethods):
                     )
                 )
             
-            if "xlim" in x_axis.keys():
-                 fig.update_xaxes(range = x_axis["xlim"])
-            if "ylim" in x_axis.keys():
-                 fig.update_yaxes(range = x_axis["ylim"])
-            if "zlim" in x_axis.keys():
-                 fig.update_zaxes(range = x_axis["zlim"])
-                 
-        export_path = self.export_path_check()
-        output_path = os.path.join(export_path, self.files_name_tag)
-        self.print_text("check", f"\n\tHTML Plot produced in : {output_path}")
-        plot(fig, filename = output_path, auto_open = auto_open)
+        if "xlim" in x_axis.keys():
+             fig.update_xaxes(range = x_axis["xlim"])
+        if "ylim" in x_axis.keys():
+             fig.update_yaxes(range = x_axis["ylim"])
+        if "zlim" in x_axis.keys():
+             fig.update_zaxes(range = x_axis["zlim"])
+
+    def __2D_plot(self, go, fig, x_axis_title, y_axis_title, x_axis, y_axis, 
+                  secondary_y = False):
+        for n, (x, y) in enumerate(zip(x_axis['values'], y_axis['values'])):
+            mode = x_axis.get('markers', ['markers'])[n]
+            if secondary_y:
+                name = x_axis['legend_secondary'][n] if 'legend_secondary' in x_axis else None
+            else:
+                name = x_axis['legend'][n] if 'legend' in x_axis else None
+            if mode == 'lines':
+                fig.add_trace(go.Scatter(
+                            x = x,
+                            y = y,
+                            mode = 'lines',
+                            name = name,
+                            line = dict(width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
+                        ),
+                        secondary_y = secondary_y
+                        )
+            elif mode == 'markers':
+                fig.add_trace(go.Scatter(
+                            x = x,
+                            y = y,
+                            mode = 'markers',
+                            name = name,
+                            marker = dict(size = x_axis['sizes'][n] if 'sizes' in x_axis else 10)
+                        ),
+                        secondary_y = secondary_y
+                              )
+            else:
+                fig.add_trace(go.Scatter(
+                            x = x,
+                            y = y,
+                            mode = 'markers+lines',
+                            name = name,
+                            marker = dict(size = x_axis['sizes'][n] if 'sizes' in x_axis else 10),
+                            line = dict(width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
+                        ),
+                        secondary_y = secondary_y
+                              )
+            
+        if 'scale' in x_axis.keys():
+            if x_axis["scale"] == "loglog":
+                fig.update_layout(
+                    xaxis_title = x_axis_title,
+                    yaxis_title = y_axis_title,
+                    xaxis=dict(type="log", exponentformat="e"),  
+                    yaxis=dict(type="log", exponentformat="e")  
+                )
+            elif x_axis["scale"] == "logx":
+                fig.update_layout(
+                    xaxis_title = x_axis_title,
+                    yaxis_title = y_axis_title,
+                    xaxis=dict(type="log", exponentformat="e"),  
+                )
+            elif x_axis["scale"] == "logy":
+                fig.update_layout(
+                    xaxis_title = x_axis_title,
+                    yaxis_title = y_axis_title,
+                    yaxis=dict(type="log", exponentformat="e")  
+                )                
+        else:
+            fig.update_layout(
+                    xaxis_title = x_axis_title,
+                    yaxis_title = y_axis_title
+                    )
+            
+        if "xlim" in x_axis.keys():
+             fig.update_xaxes(range = x_axis["xlim"])
+        if "ylim" in x_axis.keys():
+             fig.update_yaxes(range = x_axis["ylim"])
         
     def polar_plot_to_html(self, plot_dictionary, auto_open = False):
         """
@@ -292,6 +349,14 @@ class Plot(SharedMethods):
         theta_axis = plot_dictionary[theta_axis_title]
 
         # Plotting
+        self.__polar_plot(go, fig, r_axis, theta_axis)
+        
+        export_path = self.export_path_check()
+        output_path = os.path.join(export_path, self.files_name_tag)
+        self.print_text("check", f"\n\tHTML Plot produced in : {output_path}")
+        plot(fig, filename = output_path, auto_open = auto_open)
+
+    def __polar_plot(self, go, fig, r_axis, theta_axis):
         for n, (r, theta) in enumerate(zip(r_axis['values'], theta_axis['values'])):
             mode = r_axis.get('markers', ['markers'])[n]
             if mode == 'lines':
@@ -310,8 +375,4 @@ class Plot(SharedMethods):
                     name=r_axis['legend'][n] if 'legend' in r_axis else None,
                     marker=dict(size=r_axis['sizes'][n] if 'sizes' in r_axis else 10)
                 ))
-        export_path = self.export_path_check()
-        output_path = os.path.join(export_path, self.files_name_tag)
-        self.print_text("check", f"\n\tHTML Plot produced in : {output_path}")
-        plot(fig, filename = output_path, auto_open = auto_open)
         
