@@ -77,19 +77,26 @@ class Processor(SharedMethods):
         """
         Merge multiple data sources into a single pivot base.
 
-        :param self: The instance of the class that this method belongs to.
-        :type self: YourClassName
+        Parameters
+        ----------
+        self : YourClassName
+            The instance of the class containing the data sources to be merged.
 
-        :return: A merged data structure containing all data from the base sources.
-        :rtype: PivotBase
+        Returns
+        -------
+        pivot_base : PivotBase
+            A merged data structure containing all zones, instants, and variables from the base sources.
 
-        .. note::
+        Notes
+        -----
+        - The first data source in `self.base` is used as the pivot base, and the remaining sources are iteratively merged.
+        - New zones and instants are added to the pivot base if they do not exist.
+        - Variables with duplicate names are detected and renamed by appending "_DUP" to avoid conflicts, with a warning printed.
+        - It is recommended to ensure that variable names are unique to avoid unexpected behavior.
 
-            - This method initializes the merge with the first data source as the pivot base.
-            - It iterates through the remaining data sources, updating the pivot base with zones, instants, and variables.
-            - If a zone or instant is missing in the pivot base, it is added.
-            - Duplicate variables within the same zone and instant are detected and renamed to avoid conflicts, with a warning message printed.
-            - Ensure that variable names are unique to prevent unexpected behavior.
+        Example
+        -------
+        >>> merged_data = base.fusion()
         """
         bases = deque(self.base)
         pivot_base = bases.popleft()
@@ -122,25 +129,29 @@ class Processor(SharedMethods):
 
     def fft(self, decomposition_type="both", frequencies_band = (None, None), **kwargs):
         """
-        Compute the Fast Fourier Transform (FFT) of the input signal for each variable in the dataset.
+        Compute the Fast Fourier Transform (FFT) for each variable in the dataset.
 
-        :param time_step: The time interval between samples in the input signal.
-            - This is computed from the variable time in the instant or can be passed as an attribute of the instant, otherwiese it is set to 1.
-        :type time_step: float
-        :param decomposition_type: Specifies the type of decomposition to return. Options are:
+        Parameters
+        ----------
+        decomposition_type : str, optional
+            Specifies the type of FFT decomposition to return. Options are:
             - "im/re": Returns the real and imaginary components.
             - "mod/phi": Returns the magnitude and phase components.
             - "both": Returns both real/imaginary and magnitude/phase components (default).
-        :type decomposition_type: str, optional
-        :param frequencies_band: A tuple or list defining the frequency band to apply for filtering.
+            - "complex": Returns the complex result.
+        frequencies_band : tuple or list of float, optional
+            A tuple or list defining the frequency band to apply for filtering.
             - If `None`, no frequency filtering is applied (default: (None, None)).
-            - Values must be in the form (min_freq, max_freq). Frequencies outside this range are excluded.
-        :type frequencies_band: tuple or list of float, optional
-        :param kwargs: Additional arguments. This can include:
+            - Values should be in the form (min_freq, max_freq). Frequencies outside this range are excluded.
+        kwargs : dict, optional
+            Additional arguments. This can include:
             - `invariant_variables`: A list of variable names to exclude from FFT computation.
             Default is set to Orion.DEFAULT_COORDINATE_NAMES + Orion.DEFAULT_TIME_NAME.
 
-        :return: A dictionary-like object (fft_base) with the FFT results, varying by `decomposition_type`:
+        Returns
+        -------
+        fft_base : dict-like
+            A dictionary-like object with FFT results. The content varies based on `decomposition_type`:
             - For "im/re":
                 - **frequencies**: The positive frequencies corresponding to the FFT result.
                 - **real**: The real part of the FFT result for each variable.
@@ -155,19 +166,28 @@ class Processor(SharedMethods):
                 - **imaginary**: The imaginary part of the FFT result for each variable.
                 - **magnitude**: The magnitude of the FFT result for each variable.
                 - **phase**: The phase of the FFT result for each variable.
-        :rtype: dict-like (fft_base)
+            - For "complex":
+                - **complex**: The full complex FFT result for each variable.
 
-        :raises ValueError:
-            - If `frequencies_band` is not a tuple or list, or if it does not contain exactly two elements.
-            - If `decomposition_type` is not one of the accepted values ("im/re", "mod/phi", "both").
-        :raises TypeError: If `frequencies_band` is not a tuple or list.
+        Raises
+        ------
+        ValueError
+            If `frequencies_band` is not a tuple or list, or if it does not contain exactly two elements.
+            If `decomposition_type` is not one of the accepted values ("im/re", "mod/phi", "both", "complex").
+        TypeError
+            If `frequencies_band` is not a tuple or list.
 
-        .. note::
-            - This function leverages Dask for parallel and out-of-core computation to handle large datasets.
-            - Only positive frequencies are considered due to the symmetry of the FFT.
-            - The `mask_band` method is used to filter out frequencies outside the specified `frequencies_band`.
-            - `fft_base` contains FFT results for each variable that is not listed in `invariant_variables`.
-            """
+        Notes
+        -----
+        - This function uses Dask for parallel and out-of-core computation to handle large datasets.
+        - Only positive frequencies are considered due to the symmetry of the FFT.
+        - The `mask_band` method is used to filter out frequencies outside the specified `frequencies_band`.
+        - FFT results are only computed for variables not listed in `invariant_variables`.
+
+        Example
+        -------
+        >>> fft_result = base.fft(decomposition_type="mod/phi", frequencies_band=(0, 50))
+        """
         invariant_variables = kwargs.get("invariant_variables",
                                          Orion.DEFAULT_TIME_NAME)
         time_name = Orion.DEFAULT_TIME_NAME[0]
@@ -185,7 +205,7 @@ class Processor(SharedMethods):
                 frequencies_band = [np.min(frequencies_band), np.max(frequencies_band)]
 
         if decomposition_type not in ["im/re", "mod/phi", "both", 'complex']:
-            raise ValueError("Invalid decomposition_type. Choose from 'im/re'," 
+            raise ValueError("Invalid decomposition_type. Choose from 'im/re',"
                              "'mod/phi', complex, or 'both'.")
 
         fft_base = Orion.Base()
@@ -202,21 +222,20 @@ class Processor(SharedMethods):
                 time_step = self.base[zone][instant].get_attribute(time_step_name)
                 if time_step is None:
                     self.print_text("warning", f"Neither TimeValue nor TimeStep were found in the variables instant: {instant} or in the instant attribute, therefore the time step is assumed to be 1/Number of points.")
-                    
-            for variable, value in self.base[zone][instant].items():
 
+            for variable, value in self.base[zone][instant].items():
                 if variable not in invariant_variables and value is not None:
 
                     if time_step is None:
                         time_step = len(value)
-                        
+
                     # Compute the FFT using Dask
                     fft_value = da.fft.fft(value, axis=0)
                     fft_freqs = da.fft.fftfreq(len(value), d=time_step)
-                    
+
                     # Only take the positive frequencies (since FFT is symmetric)
                     if np.any(frequencies_band):
-                        mask = self.__mask_band(fft_freqs[:len(fft_freqs)//2], 
+                        mask = self.__mask_band(fft_freqs[:len(fft_freqs)//2],
                                                 frequencies_band)
                         fft_value = fft_value[:len(fft_value)//2][mask.compute()]
                         fft_freqs = fft_freqs[:len(fft_freqs)//2][mask.compute()]
@@ -246,7 +265,44 @@ class Processor(SharedMethods):
         return fft_base
 
     def psd(self, frequencies_band = (None, None), **kwargs):
+        """
+        Compute the Power Spectral Density (PSD) of variables within a specified frequency band.
 
+        Parameters
+        ----------
+        frequencies_band : tuple or list, optional
+            A pair of frequencies specifying the frequency band for filtering the PSD output. 
+            If `None`, the entire frequency range is used. 
+            Default is (None, None), meaning no band filtering is applied.
+
+        invariant_variables : str or list, optional
+            Names of the variables that should not be included in the PSD calculation. 
+            Default is the value of `Orion.DEFAULT_TIME_NAME`.
+
+        Returns
+        -------
+        psd_base : Orion.Base
+            A new base object containing the PSD values for each variable in the specified frequency band.
+
+        Raises
+        ------
+        ValueError
+            If the `frequencies_band` is not a tuple or list.
+            
+        TypeError
+            If `frequencies_band` is not of type tuple or list.
+        
+        Notes
+        -----
+        - The Welch method is used to compute the PSD with `nperseg` set to one-eighth of the total data length.
+        - The sampling frequency (`fs`) is computed as the inverse of the time step between data points.
+        - If neither the time value nor the time step is found, the time step is assumed to be `1/Number of points`.
+        - If a frequency band is specified, the PSD values are filtered to only include frequencies within the band.
+
+        Example
+        -------
+        >>> psd_data = base.psd(frequencies_band=(0.1, 10))
+        """
         if np.any(frequencies_band):
             if not isinstance(frequencies_band, (tuple, list)):
                 print("Frequencies band type can be tuple or list.")
@@ -284,7 +340,7 @@ class Processor(SharedMethods):
 
                     if time_step is None:
                         time_step = 1/len(value)
-                        
+
                     psd_freqs, psd_value = welch(value, fs=1/time_step,
                                                  nperseg=len(value)//8)
 
@@ -303,46 +359,57 @@ class Processor(SharedMethods):
         """
         Apply a digital filter to the data using various filter types and configurations.
 
-        :param filter_type: The type of filter to apply. Options include:
+        Parameters
+        ----------
+        filter_type : str, optional
+            The type of filter to apply. Options include:
             - 'butterworth': Butterworth filter.
             - 'cheby1': Chebyshev Type I filter.
             - 'cheby2': Chebyshev Type II filter.
             - 'elliptic': Elliptic filter.
             - 'bessel': Bessel filter.
-        Default is 'butterworth'.
-        :type filter_type: str, optional
+            Default is 'butterworth'.
 
-        :param cutoff: The cutoff frequency or frequencies for the filter:
+        cutoff : float, list, tuple, optional
+            The cutoff frequency or frequencies for the filter:
             - For 'low' and 'high' filters, a single cutoff frequency.
             - For 'band' and 'stop' filters, a list or tuple of two cutoff frequencies.
-        If `None`, no filtering is applied. Default is `None`.
-        :type cutoff: float, list or tuple, optional
+            If `None`, no filtering is applied. Default is `None`.
 
-        :param sampling_rate: The rate at which samples were taken (samples per second). Default is 1000 Hz.
-        :type sampling_rate: float, optional
+        sampling_rate : float, optional
+            The rate at which samples were taken (samples per second). Default is 1000 Hz.
 
-        :param order: The order of the filter. Higher values mean a steeper roll-off. Default is 5.
-        :type order: int, optional
+        order : int, optional
+            The order of the filter. Higher values mean a steeper roll-off. Default is 5.
 
-        :param btype: The type of filter to design:
+        btype : str, optional
+            The type of filter to design:
             - 'low': Low-pass filter. Allows frequencies below the cutoff to pass through.
             - 'high': High-pass filter. Allows frequencies above the cutoff to pass through.
             - 'band': Band-pass filter. Allows frequencies within the cutoff range to pass through.
             - 'stop': Band-stop (notch) filter. Blocks frequencies within the cutoff range.
-        Default is 'low'.
-        :type btype: str, optional
+            Default is 'low'.
 
-        :return: The modified data with the filter applied.
-        :rtype: dict-like (self.base)
+        Returns
+        -------
+        filter_base : dict-like
+            A new dictionary-like object with the filter applied to the variables.
 
-        :raises ValueError:
-            - If `cutoff` is not appropriate for the specified `btype`.
-            - If `cutoff` frequencies exceed the Nyquist frequency (half the sampling rate).
-            - If an unsupported `filter_type` is specified.
+        Raises
+        ------
+        ValueError
+            If `cutoff` is not appropriate for the specified `btype`, or if `cutoff` frequencies
+            exceed the Nyquist frequency (half the sampling rate). Also raised if an unsupported
+            `filter_type` is specified.
 
-        .. note::
-            - The Nyquist frequency is half the sampling rate, and it is used to normalize the cutoff frequency.
-            - The `filtfilt` function is used for zero-phase filtering, ensuring no phase distortion.
+        Notes
+        -----
+        - The Nyquist frequency is half the sampling rate, used to normalize the cutoff frequency.
+        - The `filtfilt` function is used for zero-phase filtering, ensuring no phase distortion.
+
+        Example
+        -------
+        >>> filtered_data = base.filter(filter_type='butterworth', cutoff=500, sampling_rate=1000, order=4, btype='low')
         """
         invariant_variables = kwargs.get("invariant_variables",
                                          Orion.DEFAULT_TIME_NAME +
@@ -420,6 +487,96 @@ class Processor(SharedMethods):
                                                         variable_obj[::factor])
 
         return reduce_base
+    
+    def normalization(self):
+        """
+        Normalize the variables within the base to a specified range.
+
+        Returns
+        -------
+        normalize_base : Orion.Base
+            A new base object with normalized variables.
+
+        Raises
+        ------
+        ValueError
+            If the lower bound is greater than the upper bound.
+
+        Example
+        -------
+        >>> normalized_base = base.normalization(lower=0, upper=1)
+        """
+        normalize_base = copy.deepcopy(self.base)
+        for zone, instant in self.base.items():
+            normalize_base[zone].add_instant(instant)
+            for variable_name, variable_obj in list(self.base[zone][instant].items()):
+                
+                use_lower = variable_obj.min()
+                use_upper = variable_obj.max()
+                
+                if use_lower != use_upper:
+                    normalization = (variable_obj - use_lower)/(use_upper - use_lower)
+                else:
+                    normalization = variable_obj
+                    
+                normalize_base[zone][instant].add_variable(variable_name, 
+                                                           normalization)
+
+        return normalize_base
+    
+    def gradient(self, edge_order = None, axis = None, **kwargs):
+        """
+        Compute the numerical gradient for each variable in the dataset.
+
+        Parameters
+        ----------
+        edge_order : int, optional
+            The order of accuracy used at the boundaries. Default is 2 (second-order accurate).
+        axis : int, optional
+            The axis along which the gradient is computed. If not specified, the gradient is computed along all axes.
+        kwargs : dict, optional
+            Additional keyword arguments, including:
+            - `invariant_variables`: The name of the variable to exclude from gradient computation or use as reference for gradients.
+
+        Returns
+        -------
+        gradient_base : dict-like
+            A deep copy of the original dataset (`self.base`) with gradients computed for each variable.
+
+        Notes
+        -----
+        - The method deep copies the base dataset to store the computed gradients.
+        - If `invariant_variables` is specified, it is excluded from gradient computation, or it is used as the reference axis.
+        - The `__compute_gradient` method is called for the actual gradient computation.
+        - The `edge_order` parameter determines the order of finite differencing used at the boundary.
+        
+        Example
+        -------
+        >>> gradient_result = base.gradient(edge_order=2, axis=0, invariant_variables="time")
+        """
+        invariant_variables = kwargs.get("invariant_variables", None)
+        
+        edge_order = 2 if not edge_order else edge_order
+        
+        gradient_base = copy.deepcopy(self.base)
+        
+        for zone, instant in self.base.items():
+            for variable_name, variable_obj in list(self.base[zone][instant].items()):
+                if invariant_variables: 
+                    if variable_name == invariant_variables: continue
+                    gradient_value = self.__compute_gradient(variable_obj,
+                                                            self.base[zone][instant][invariant_variables].data,
+                                                            edge_order = edge_order,
+                                                            axis = axis)
+                if invariant_variables is None:
+                    gradient_value = self.__compute_gradient(variable_obj, 
+                                                            edge_order = edge_order,
+                                                            axis = axis)
+                
+                gradient_base[zone][instant].add_variable(variable_name, 
+                                                          gradient_value[0].reshape(variable_obj.shape))
+        
+        return gradient_base
 
     def detrend(self, type = None, **kwargs):
         """
@@ -524,7 +681,7 @@ class Processor(SharedMethods):
 
         return smooth_base
 
-    def linear_regression(self, independent_variable_name = None, method = 'dask', 
+    def linear_regression(self, independent_variable_name = None, method = 'dask',
                           **kwargs):
         """
         Perform linear regression on the variables in the base object using the specified independent variable.
@@ -532,7 +689,7 @@ class Processor(SharedMethods):
         Parameters
         ----------
         independent_variable_name : str or list of str, optional
-            The name of the independent variable (predictor) to be used for the regression. 
+            The name of the independent variable (predictor) to be used for the regression.
             If not provided, defaults to the default time variable in Orion.
         method : str, optional
             The method to be used for performing the linear regression. Defaults to 'dask'.
@@ -572,10 +729,10 @@ class Processor(SharedMethods):
         linear_base = Orion.Base()
         linear_base.add_zone(list(self.base.keys()))
         for zone, instant in self.base.items():
-            
+
             if independent_variable_name[0] not in self.base[zone][instant].keys():
                 continue
-            
+
             linear_base[zone].add_instant(instant)
             independent_variable = self.base[zone][instant][independent_variable_name[0]].data
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
@@ -627,7 +784,7 @@ class Processor(SharedMethods):
             The slope of the linear regression line.
         intercept : float
             The intercept of the linear regression line.
-        
+
         If stats=True, additionally returns:
         rse : float
             Residual Standard Error.
@@ -675,7 +832,7 @@ class Processor(SharedMethods):
             return y_linear_regression, slope, intercept, rse.compute(), \
                 se_slope.compute(), se_intercept.compute(), residuals
         return y_linear_regression, slope, intercept
-    
+
     @staticmethod
     def robust_linear_regression(y, x, stats=False, method='RANSAC', **kwargs):
         """
@@ -718,7 +875,7 @@ class Processor(SharedMethods):
         >>> y_pred, slope, intercept, rse, se_slope, se_intercept, residuals = robust_linear_regression(y, x, stats=True, method="Rigide", alpha = 0.1)
         """
         import numpy as np
-        from sklearn.linear_model import (RANSACRegressor, HuberRegressor, 
+        from sklearn.linear_model import (RANSACRegressor, HuberRegressor,
                                         TheilSenRegressor, Ridge, Lasso)
 
         # Choose the regression model based on the method parameter
@@ -741,8 +898,8 @@ class Processor(SharedMethods):
         # Get slope and intercept
         slope = model.estimator_.coef_[0] if hasattr(model, 'estimator_') else model.coef_[0]
         intercept = model.estimator_.intercept_ if hasattr(model, 'estimator_') else model.intercept_
-        
-        
+
+
         # Calculate the predicted trend (y_linear_regression)
         y_linear_regression = slope * x + intercept
 
@@ -761,13 +918,13 @@ class Processor(SharedMethods):
             se_slope = rse / np.sqrt(var_x)
             # Standard error of intercept
             se_intercept = rse * np.sqrt((1 / n) + (x_mean ** 2 / var_x))
-            
+
             return y_linear_regression, slope, intercept, rse.compute(), \
                 se_slope.compute(), se_intercept.compute(), residuals
-                
+
         return y_linear_regression, slope, intercept
 
-    
+
     @staticmethod
     def smoothing(input_signal, polyorder, first_window_size, middle_window_size, last_window_size):
         """
@@ -916,7 +1073,7 @@ class Processor(SharedMethods):
         Parameters
         ----------
         input : dask.array.Array or array-like
-            The input data to convert. If it's a Dask array, it will be computed and converted to a NumPy array. 
+            The input data to convert. If it's a Dask array, it will be computed and converted to a NumPy array.
             If it's already a NumPy array or similar, it will be converted to a NumPy array without additional computation.
 
         Returns
@@ -947,22 +1104,22 @@ class Processor(SharedMethods):
         ----------
         num_order : int
             The order of the numerator polynomial of the transfer function.
-            
+
         den_order : int
             The order of the denominator polynomial of the transfer function.
-            
+
         initial_params : array-like
             Initial guess for the parameters of the transfer function. This should be a 1D array where
             the first `num_order + 1` elements are the numerator coefficients and the remaining elements
             are the denominator coefficients (excluding the leading 1 which is implicitly part of the denominator).
-            
+
         input_signal : array-like
             The input signal data used for fitting the transfer function.
-            
+
         output_signal : array-like
             The output signal data used for fitting the transfer function. This is compared to the response of
             the transfer function to the `input_signal`.
-            
+
         time : array-like
             The time vector corresponding to the `input_signal` and `output_signal`.
 
@@ -984,7 +1141,7 @@ class Processor(SharedMethods):
         >>> print(optimized_params)
         [0.9 0.8 1.1 0.7]
         """
-        
+
         """ Fit the transfer function using scipy's minimize. """
         def fit_transfer_function(params):
             num = params[:num_order + 1]
@@ -996,7 +1153,47 @@ class Processor(SharedMethods):
         result = spy.optimize.minimize(fit_transfer_function, initial_params,
                           method='Nelder-Mead')
         return result.x
-    
+
+    def __compute_gradient(self, variable, varargs  = None, edge_order = None, 
+                           axis = None):
+        """
+        Compute the numerical gradient of a given variable.
+
+        Parameters
+        ----------
+        variable : np.array or dask.array
+            The variable for which the gradient is to be computed. If it is a scalar, the gradient is set to 0.
+        varargs : np.array or dask.array, optional
+            If provided, the gradient will be computed with respect to these coordinates (e.g., time or space).
+            This is particularly useful for non-uniform grids or when specific spacing is involved.
+        edge_order : int, optional
+            The order of accuracy at the boundary. Default is None, which will use numpy's default (2).
+        axis : int, optional
+            The axis along which the gradient is computed. If not specified, the gradient will be computed along all axes.
+
+        Returns
+        -------
+        np.array
+            The computed gradient of the input variable. If the input is a scalar, an array with a single 0 is returned.
+
+        Notes
+        -----
+        - If `varargs` is provided, it represents the coordinates for the gradient computation.
+        - Since Dask arrays are not directly supported by `np.gradient`, `varargs` is computed if it is a Dask array.
+        """
+        if np.isscalar(variable):
+            return np.array([0])
+        else:
+            if varargs is None:
+                return np.gradient(variable,
+                                edge_order = edge_order,
+                                axis = axis)
+            else:
+                # Dask coordinate are not supported yet in numpy
+                return np.gradient(variable, varargs.compute(), 
+                                edge_order = edge_order, 
+                                axis = None)
+                
     def __mask_band(self, input_signal, band):
         """
         Create a boolean mask for the input signal based on the specified frequency band.
@@ -1005,7 +1202,7 @@ class Processor(SharedMethods):
         ----------
         input_signal : array-like
             The signal data to be masked. This could be a NumPy array or a similar array-like structure.
-            
+
         band : tuple
             A tuple defining the frequency band for masking. The tuple should contain two elements:
             - min_band : float or None
@@ -1066,7 +1263,7 @@ class Processor(SharedMethods):
         ----------
         input : numpy.ndarray or other
             The input data to convert. If it is a NumPy array, it will be converted to a Dask array.
-            
+
         chunk_size : int, tuple, or "auto", optional
             The chunk size to use for the Dask array. If "auto", the default chunk size will be used.
             If an integer, it will be used for all dimensions. If a tuple, it specifies chunk sizes for
@@ -1086,7 +1283,7 @@ class Processor(SharedMethods):
         >>> dask_arr = __numpy_to_dask(arr, chunk_size=2)
         >>> type(dask_arr)
         <class 'dask.array.core.Array'>
-        
+
         """
         if isinstance(input, np.ndarray):
             return da.from_array(input, chunks=chunk_size)
@@ -1101,7 +1298,7 @@ class Processor(SharedMethods):
         input : numpy.ndarray or dask.array.Array
             The input data to rechunk. If it is a NumPy array, it will be converted to a Dask array
             and rechunked. If it is already a Dask array, its chunks will be adjusted.
-            
+
         chunk_size : int, tuple, or "auto", optional
             The chunk size to use for the Dask array. If "auto", the default chunk size will be used.
             If an integer, it will be used for all dimensions. If a tuple, it specifies chunk sizes for
@@ -1121,7 +1318,7 @@ class Processor(SharedMethods):
         >>> rechunked_arr = __rechunk(arr, chunk_size=2)
         >>> type(rechunked_arr)
         <class 'dask.array.core.Array'>
-        
+
         >>> dask_arr = da.from_array([1, 2, 3, 4, 5], chunks=2)
         >>> rechunked_dask_arr = __rechunk(dask_arr, chunk_size=3)
         >>> rechunked_dask_arr.chunks
