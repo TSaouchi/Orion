@@ -24,7 +24,7 @@ DEFAULT_COORDINATE_NAMES = ['CoordinateX','CoordinateY','CoordinateZ']
 
 DEFAULT_VAR_SYNONYMS = {
 
-            DEFAULT_TIME_NAME[0] : ['t', 'Temps', 'Time', 'time'],
+            DEFAULT_TIME_NAME[0] : ['t', 'Temps', 'Time', 'time', 'Temps__1_-_Vitesse_de_mesure_standard', 'Temps__2_-_Vitesse_de_mesure_standard'],
             DEFAULT_TIMESTEP_NAME[0] : ['dt', 'Deltat', 'time_step'],
             DEFAULT_FREQUENCY_NAME[0] : ['frequency'],
             DEFAULT_COORDINATE_NAMES[0] : ['X', 'x'],
