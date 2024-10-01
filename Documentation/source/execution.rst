@@ -46,8 +46,3 @@ Cluster (HPC)
 
     # Execute your Python script
     python YOUR_PYTHON_CODE.py
-
-.. important::
-
-    - All the specification can be found here |KronosUserGuide| (for more details on |QoS|)
-    - Make sure that the cluster has access to the inputs 
