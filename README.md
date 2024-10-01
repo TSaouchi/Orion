@@ -116,7 +116,7 @@ Author: Toufik Saouchi
 Version: <project version>
 ========================================================
 
-Base
+Base: 
   Zone: zone_1
     Instant: instant_1
     Instant: instant_2
@@ -152,7 +152,7 @@ base[0][0][0]._attributes
 > Output
 
 ```consol
-Base
+Base:
   Zone: zone_1
     Instant: instant_1
       Variable: Velocity -> Shape :(8, 30)
@@ -179,13 +179,16 @@ base.show(stats = True)
 > Output
 
 ```consol
-Base
+Computing~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Zones    : 100%|███████████████████████████████████| 1.00/1.00 [00:00<?, ?ops/s]
+
+Base: 
   Zone: zone_1
     Instant: instant_1
-      Variable: Velocity -> Shape :(8, 30), stats(min, mean, max): (1, 51.42, 100)
-      Variable: Pressure -> Shape :(8, 30), stats(min, mean, max): (1, 50.5, 100)
+      Variable: Velocity -> Shape :(8, 30), stats(min, mean, max): (1, 50.38, 100)
+      Variable: Pressure -> Shape :(8, 30), stats(min, mean, max): (1, 51.37, 100)
       Variable: Density -> Shape :(), stats(min, mean, max): (1.08, 1.08, 1.08)
-      Variable: Ratio -> Shape :(8, 30), stats(min, mean, max): (0.0, 0.83, 64.81)
+      Variable: Ratio -> Shape :(8, 30), stats(min, mean, max): (0.0, 0.97, 87.96)
     Instant: instant_2
   Zone: zone_2
     Instant: instant_1
@@ -209,13 +212,16 @@ base.show(stats = True)
 > Output
 
 ```consol
-Base
+Computing~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Zones    : 100%|███████████████████████████████████| 4.00/4.00 [00:00<?, ?ops/s]
+
+Base: 
   Zone: zone_1
     Instant: instant_1
-      Variable: Velocity -> Shape :(8, 30), stats(min, mean, max): (1, 47.05, 100)
-      Variable: Pressure -> Shape :(8, 30), stats(min, mean, max): (1, 47.34, 100)
+      Variable: Velocity -> Shape :(8, 30), stats(min, mean, max): (1, 50.38, 100)
+      Variable: Pressure -> Shape :(8, 30), stats(min, mean, max): (1, 51.37, 100)
       Variable: Density -> Shape :(), stats(min, mean, max): (1.08, 1.08, 1.08)
-      Variable: Ratio -> Shape :(8, 30), stats(min, mean, max): (0.0, 0.99, 50.0)
+      Variable: Ratio -> Shape :(8, 30), stats(min, mean, max): (0.0, 0.97, 87.96)
       Variable: Element_number -> Shape :(), stats(min, mean, max): (5, 5.0, 5)
     Instant: instant_2
       Variable: Element_number -> Shape :(), stats(min, mean, max): (5, 5.0, 5)
