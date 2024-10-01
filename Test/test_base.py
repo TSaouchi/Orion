@@ -153,7 +153,7 @@ class TestBase(unittest.TestCase):
         sys.stdout = old_stdout
 
         expected_output = (
-         'Base\n  Zone: Zone1\n    Instant: Instant1\n      Variable: variable1 -> Shape :(3,)\n      Variable: variable2 -> Shape :(3,)\n    Instant: Instant2\n      Variable: variable1 -> Shape :(3,)\n      Variable: variable2 -> Shape :(3,)\n  Zone: Zone2\n    Instant: Instant1\n      Variable: variable1 -> Shape :(3,)\n      Variable: variable2 -> Shape :(3,)\n    Instant: Instant2\n      Variable: variable1 -> Shape :(3,)\n      Variable: variable2 -> Shape :(3,)\n'
+         '\x1b[37mBase\x1b[0m\n\x1b[32m  Zone: Zone1\x1b[0m\n\x1b[32m    Instant: Instant1\x1b[0m\n\x1b[94m      Variable: variable1 -> Shape :(3,)\x1b[0m\n\x1b[94m      Variable: variable2 -> Shape :(3,)\x1b[0m\n\x1b[32m    Instant: Instant2\x1b[0m\n\x1b[94m      Variable: variable1 -> Shape :(3,)\x1b[0m\n\x1b[94m      Variable: variable2 -> Shape :(3,)\x1b[0m\n\x1b[32m  Zone: Zone2\x1b[0m\n\x1b[32m    Instant: Instant1\x1b[0m\n\x1b[94m      Variable: variable1 -> Shape :(3,)\x1b[0m\n\x1b[94m      Variable: variable2 -> Shape :(3,)\x1b[0m\n\x1b[32m    Instant: Instant2\x1b[0m\n\x1b[94m      Variable: variable1 -> Shape :(3,)\x1b[0m\n\x1b[94m      Variable: variable2 -> Shape :(3,)\x1b[0m\n'
         )
         self.assertEqual(output, expected_output)
         
@@ -163,7 +163,7 @@ class TestBase(unittest.TestCase):
         output = sys.stdout.getvalue()
         sys.stdout = old_stdout
         expected_output = (
-         'Base\n  Zone: Zone1\n    Instant: Instant1\n      Variable: variable1 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\n      Variable: variable2 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\n    Instant: Instant2\n      Variable: variable1 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\n      Variable: variable2 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\n  Zone: Zone2\n    Instant: Instant1\n      Variable: variable1 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\n      Variable: variable2 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\n    Instant: Instant2\n      Variable: variable1 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\n      Variable: variable2 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\n'
+         '\x1b[37mBase\x1b[0m\n\x1b[32m  Zone: Zone1\x1b[0m\n\x1b[32m    Instant: Instant1\x1b[0m\n\x1b[94m      Variable: variable1 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\x1b[0m\n\x1b[94m      Variable: variable2 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\x1b[0m\n\x1b[32m    Instant: Instant2\x1b[0m\n\x1b[94m      Variable: variable1 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\x1b[0m\n\x1b[94m      Variable: variable2 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\x1b[0m\n\x1b[32m  Zone: Zone2\x1b[0m\n\x1b[32m    Instant: Instant1\x1b[0m\n\x1b[94m      Variable: variable1 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\x1b[0m\n\x1b[94m      Variable: variable2 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\x1b[0m\n\x1b[32m    Instant: Instant2\x1b[0m\n\x1b[94m      Variable: variable1 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\x1b[0m\n\x1b[94m      Variable: variable2 -> Shape :(3,), stats(min, mean, max): (1, 2.0, 3)\x1b[0m\n'
         )
         self.assertEqual(output, expected_output)
     
