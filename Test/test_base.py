@@ -1,6 +1,7 @@
 import unittest
 from io import StringIO
 import numpy as np
+import dask.array as da
 import sys
 import Core as Orion
 
@@ -29,42 +30,67 @@ class TestVariables(unittest.TestCase):
         self.assertTrue(np.array_equal(var.data, np.array([[1, 2, 3], [4, 5, 6]])))
 
 class TestInstants(unittest.TestCase):
+    def setUp(self):
+        self.instant = Orion.Instants()
+
     def test_add_variable(self):
-        instant = Orion.Instants()
-        instant.add_variable('var1', [[1, 2, 3], [4, 5, 6]])
-        self.assertTrue(np.array_equal(instant['var1'].data, np.array([[1, 2, 3], [4, 5, 6]])))
+        self.instant.add_variable('var1', [[1, 2, 3], [4, 5, 6]])
+        self.assertTrue(da.all(self.instant['var1'].data == da.array([[1, 2, 3], [4, 5, 6]])))
 
     def test_delete_variable(self):
-        instant = Orion.Instants()
-        instant.add_variable('var1', [[1, 2, 3], [4, 5, 6]])
-        instant.delete_variable('var1')
+        self.instant.add_variable('var1', [[1, 2, 3], [4, 5, 6]])
+        self.instant.delete_variable('var1')
         with self.assertRaises(KeyError):
-            _ = instant['var1']
+            _ = self.instant['var1']
 
     def test_rename_variable(self):
-        instant = Orion.Instants()
-        instant.add_variable('var1', [[1, 2, 3], [4, 5, 6]])
-        instant.rename_variable('var1', 'var2')
-        self.assertTrue(np.array_equal(instant['var2'].data, np.array([[1, 2, 3], [4, 5, 6]])))
+        self.instant.add_variable('var1', [[1, 2, 3], [4, 5, 6]])
+        self.instant.rename_variable('var1', 'var2')
+        self.assertTrue(da.all(self.instant['var2'].data == da.array([[1, 2, 3], [4, 5, 6]])))
+
+    def test_compute_new_variable(self):
+        self.instant.add_variable('var1', [[1, 2, 3], [4, 5, 6]])
+        self.instant.add_variable('var2', [[1, 1, 1], [1, 1, 1]])
+        self.instant.compute('var3 = var1 + var2')
+        self.assertTrue(da.all(self.instant['var3'].data == da.array([[2, 3, 4], [5, 6, 7]])))
+
+    def test_compute_update_existing(self):
+        self.instant.add_variable('Time', [[1, 2, 3], [4, 5, 6]])
+        self.instant.compute('Time = Time + 5')
+        self.assertTrue(da.all(self.instant['Time'].data == da.array([[6, 7, 8], [9, 10, 11]])))
+
+    def test_compute_scalar_result(self):
+        self.instant.add_variable('var1', [[1, 2, 3], [4, 5, 6]])
+        self.instant.compute('sum_var1 = var1.sum()')
+        self.assertEqual(self.instant['sum_var1'].data.compute(), 21)
     
 class TestZones(unittest.TestCase):
+    def setUp(self):
+        self.zone = Orion.Zones()
+
     def test_add_instant(self):
-        zone = Orion.Zones()
-        zone.add_instant('instant1')
-        self.assertTrue('instant1' in zone.keys())
+        self.zone.add_instant('instant1')
+        self.assertTrue('instant1' in self.zone.keys())
 
     def test_delete_instant(self):
-        zone = Orion.Zones()
-        zone.add_instant('instant1')
-        zone.delete_instant('instant1')
+        self.zone.add_instant('instant1')
+        self.zone.delete_instant('instant1')
         with self.assertRaises(KeyError):
-            _ = zone['instant1']
+            _ = self.zone['instant1']
 
     def test_rename_instant(self):
-        zone = Orion.Zones()
-        zone.add_instant('instant1')
-        zone.rename_instant('instant1', 'instant2')
-        self.assertTrue('instant2' in zone.keys())
+        self.zone.add_instant('instant1')
+        self.zone.rename_instant('instant1', 'instant2')
+        self.assertTrue('instant2' in self.zone.keys())
+
+    def test_compute_across_instants(self):
+        self.zone.add_instant('instant1')
+        self.zone.add_instant('instant2')
+        self.zone['instant1'].add_variable('var1', [[1, 2, 3], [4, 5, 6]])
+        self.zone['instant2'].add_variable('var1', [[7, 8, 9], [10, 11, 12]])
+        self.zone.compute('var2 = var1 * 2')
+        self.assertTrue(da.all(self.zone['instant1']['var2'].data == da.array([[2, 4, 6], [8, 10, 12]])))
+        self.assertTrue(da.all(self.zone['instant2']['var2'].data == da.array([[14, 16, 18], [20, 22, 24]])))
 
 class TestBase(unittest.TestCase):
     def setUp(self):
@@ -141,6 +167,22 @@ class TestBase(unittest.TestCase):
         )
         self.assertEqual(output, expected_output)
     
+    def test_compute_across_zones_and_instants(self):
+        self.base['Zone1']['Instant1'].add_variable('var1', [[1, 2, 3], [4, 5, 6]])
+        self.base['Zone2']['Instant1'].add_variable('var1', [[7, 8, 9], [10, 11, 12]])
+        self.base.compute('var2 = var1 * 2')
+        self.assertTrue(da.all(self.base['Zone1']['Instant1']['var2'].data == da.array([[2, 4, 6], [8, 10, 12]])))
+        self.assertTrue(da.all(self.base['Zone2']['Instant1']['var2'].data == da.array([[14, 16, 18], [20, 22, 24]])))
+
+    def test_compute_with_missing_variables(self):
+        self.base['Zone1']['Instant1'].add_variable('var1', [[1, 2, 3], [4, 5, 6]])
+        self.base.compute('var2 = var1 + missing_var')
+        # var2 should not be created in any instant due to missing variable
+        with self.assertRaises(KeyError):
+            _ = self.base['Zone1']['Instant1']['var2']
+        with self.assertRaises(KeyError):
+            _ = self.base['Zone2']['Instant1']['var2']
+            
 class TestBaseInit(unittest.TestCase):
     def setUp(self):
         self.base = Orion.Base()

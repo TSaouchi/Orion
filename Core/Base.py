@@ -221,29 +221,6 @@ class Instants(CustomAttributes):
         if isinstance(key, int):
             return list(self.variables.values())[key]
         return self.variables[key]
-
-    def compute_variable(self, expression, variable_name):
-        """
-        Compute a variable based on a given expression.
-
-        This function lazily evaluates an expression and assigns the result to a new variable.
-
-        Parameters
-        ----------
-        expression : str
-            The mathematical expression to compute, using the existing variables.
-        variable_name : str
-            The name of the resulting variable.
-
-        Example
-        -------
-        compute_variable('var1 + var2', 'result')
-        """
-        # Lazy computation of a variable
-        if variable_name not in self.variables:
-            exec(expression, globals(), locals())
-            self.add_variable(variable_name, locals()[variable_name])
-            self[variable_name].compute()
     
     def items(self):
         """
@@ -268,6 +245,45 @@ class Instants(CustomAttributes):
         """
         return self.variables.keys()
     
+    def compute(self, expression):
+        """
+        Compute a new variable based on the given expression.
+
+        Parameters
+        ----------
+        expression : str
+            The expression to compute. For example, "variable3 = variable1 * variable2".
+
+        Example
+        -------
+        >>> instant.compute('variable3 = variable1 * variable2')
+        >>> instant.compute('Time = 5 + Time')  # Handles self-referential computations
+        """
+        var_name, operation = expression.split('=', 1)
+        var_name = var_name.strip()
+        operation = operation.strip()
+
+        variables_in_expression = set(self.variables.keys())
+        variables_used = set(var for var in variables_in_expression 
+                             if bool(re.search(rf'\b{re.escape(var)}\b', operation)))
+
+        if all(var in self.variables for var in variables_used):
+            # Create a local namespace for evaluation
+            local_namespace = {var: self.variables[var].data for var in variables_used}
+            
+            try:
+                # Evaluate the expression in the local namespace
+                result = eval(operation, globals(), local_namespace)
+                
+                # Add or update the variable
+                if var_name in self.variables:
+                    self.variables[var_name].data = da.array(result)
+                else:
+                    self.add_variable(var_name, result)
+            except Exception as e:
+                print(f"Error evaluating expression '{expression}': {e}")
+        else:
+            print(f"Not all required variables exist in this instant for expression: {expression}")
 
 class Zones(CustomAttributes):
     """
@@ -417,6 +433,22 @@ class Zones(CustomAttributes):
         >>>     print(instant_name)
         """
         return self.instants.keys()
+    
+    def compute(self, expression):
+        """
+        Compute a new variable based on the given expression and apply it across all instants in the zone.
+
+        Parameters
+        ----------
+        expression : str
+            The expression to compute. For example, "variable3 = variable1 * variable2".
+
+        Example
+        -------
+        >>> zone.compute('variable3 = variable1 * variable2')
+        """
+        for instant in self.instants.values():
+            instant.compute(expression)
 
 class Base(CustomAttributes):
     """
@@ -659,11 +691,12 @@ class Base(CustomAttributes):
         Parameters
         ----------
         expression : str
-            The expression to compute. For example, "variable3 = variable1 * variable2".
+            The expression to compute. For example, "variable3 = variable1 * variable2" or "Time = 5 + Time".
 
         Example
         -------
         >>> base.compute('variable3 = variable1 * variable2')
+        >>> base.compute('Time = 5 + Time')
         """
         # Parse the expression: "variable3 = variable1 * variable2"
         var_name, operation = expression.split('=', 1)
@@ -682,39 +715,30 @@ class Base(CustomAttributes):
                 variables_used.add(var)
 
         # Function to evaluate and add the computed variable
-        def evaluate_and_add_variable(instant, var_name, local_operation):
-            if var_name in instant.variables:
-                instant.delete_variable(var_name)
-
+        def evaluate_and_add_variable(instant, var_name, operation, variables_used):
+            local_namespace = {}
+            for var in variables_used:
+                if var in instant.variables:
+                    local_namespace[var] = instant.variables[var].data
+            
             try:
-                result = eval(local_operation)
-                instant.add_variable(var_name, result)
+                result = eval(operation, globals(), local_namespace)
+                if var_name in instant.variables:
+                    instant.variables[var_name].data = da.array(result)
+                else:
+                    instant.add_variable(var_name, result)
             except Exception as e:
-                print(f"Error evaluating expression '{operation}': {e}")
+                print(f"Error evaluating expression '{operation}' in instant: {e}")
 
         with ThreadPoolExecutor() as executor:
             futures = []
-            if not variables_used:
-                # If no variables are used in the expression, compute in all instants
-                for zone in self.zones.values():
-                    for instant in zone.instants.values():
+            for zone in self.zones.values():
+                for instant in zone.instants.values():
+                    if not variables_used or all(var in instant.variables for var in variables_used):
                         futures.append(
-                            executor.submit(evaluate_and_add_variable, 
-                                            instant, var_name, operation)
-                            )
-            else:
-                # Compute only in instants where all variables in the expression exist
-                for zone in self.zones.values():
-                    for instant in zone.instants.values():
-                        if all(var in instant.variables for var in variables_used):
-                            # Replace variables in the operation with their corresponding data
-                            local_operation = operation
-                            for var in variables_used:
-                                local_operation = local_operation.replace(var, f'instant.variables["{var}"].data')
-
-                            futures.append(
-                                executor.submit(evaluate_and_add_variable, instant, var_name, local_operation)
-                            )
+                            executor.submit(evaluate_and_add_variable,
+                                            instant, var_name, operation, variables_used)
+                        )
 
             # Wait for all computations to finish
             for future in futures:

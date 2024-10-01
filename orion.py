@@ -10,66 +10,46 @@ from DataProcessor import Processor
 
 if __name__ == "__main__":
     # ========================= Cases configuration ============================
-    cases = {
-        "Zones" : [
-            "",
-            ],
-        "Paths" : [
-            "",
-        ],
-        "file_name_patterns" : [
-            "",
-            ],
-        "Variables": [
-            ["Temps", "Axial Displacement", "Axial Force"],
-            ["Temps", "Axial Displacement", "Axial Force"]
-        ]
+    base_blueprint = {
+        "EWR12857_136" : {
+            "path" : r"C:\__sandBox__\Data\SARC_Gen2_HydraulicTest_Hydac\EWR12857_136",
+            "file_name_pattern" : "Valve Hydac*"
+        }
     }
 
     # ============================== Read inputs ===============================
     Reader = Orion.Reader
-    base = []
-    
-    for nzone, zone in enumerate(cases["Zones"]):
-        base.append(Reader(
-            cases["Paths"][nzone], 
-            cases["file_name_patterns"][nzone]).read_ascii(
-                variables = cases["Variables"][nzone], 
-                zone_name = [zone]))
-
-    base = Processor(base).fusion()
-    ## ============================= Data manipulation ==========================
-    # Create a simple sine wave with noise
-    sampling_rate = 1000  # Hz
-    t = np.linspace(0, 1, sampling_rate)
-    input_signal1 = np.sin(2 * np.pi * 20 * t)  # 5 Hz sine wave
-    input_signal = input_signal1 + np.sin(2 * np.pi * 5 * t)
-
     base = Orion.Base()
-    base.init()
-    base[0][0].add_variable('TimeValue', t)
-    base[0][0].add_variable('input_signal', input_signal)
-    base[0][0].add_variable('input_signal1', input_signal1)
     
-    filter_config = {
-        'cutoff' : (1, 30),
-        'btype' : 'stop',
-        'order' : 1,
-        'sampling_rate' : sampling_rate
-    }
-    base_filter = Processor(base).filter(**filter_config)
-    
-    plot_dictionary = {
-        'Time (s) - Shifted to start at zero' : {
-            'values' : [base[0][0][0].data, base_filter[0][0][0].data, base_filter[0][0][0].data],
-            'markers' : 3*['lines'],
-            'legend' : ["original", "filtered", "input"],
-            'sizes' : 3*[2]
-        },
-        'Displacement/BMW maximum dispalcement' : {
-            'values' : [base[0][0][1].data, base_filter[0][0][1].data,base[0][0][2].data],
-        },
-    }
-    output_path = r"C:\__sandBox__\Data\13124-846_G60 BMW DVP - Pink noise signal"
-    Ploter = Orion.Plot
-    Ploter(output_path).cartesian_plot_to_html(plot_dictionary)
+    for zone, config in base_blueprint.items():
+        base.add_zone(zone)
+        files_dir = list(Reader(config["path"], patterns=config["file_name_pattern"]
+                            )._Reader__generate_file_list(config["path"], 
+                                                          patterns=config["file_name_pattern"]
+                                                          ))
+        for dir in files_dir:
+            files = list(Reader(os.path.join(config["path"], dir)
+                                )._Reader__generate_file_list(os.path.join(config["path"], dir)))
+            instant_names = [name.split('.')[0] for name in files]
+            files = [os.path.join(config["path"], dir, file) for file in files]    
+
+            for file, instant_name in zip(files, instant_names):
+                base[zone].add_instant(instant_name)
+                # Read each file in a dictionary
+                file_data = {}
+                spy.io.loadmat(file, mdict = file_data)
+                
+                # Base attributes
+                file_attr = file_data['File_Header']
+                for attr in file_attr.dtype.names:
+                    base.set_attribute(attr, file_attr[attr][0][0][0])
+                
+                channel_number = int(base.get_attribute('NumberOfChannels'))
+                variable_names = [file_data[f'Channel_{_}_Header']['SignalName'][0][0][0]  for _ in range(1, channel_number)]
+                
+                for nvariable, variable in enumerate(variable_names, start=1):
+                    base[zone][instant_name].add_variable(variable, 
+                                                        [i[0] for i in file_data[f'Channel_{nvariable}_Data']])
+    base = Orion.SharedMethods().variable_mapping_cgns(base)
+    ## ============================= Data manipulation ==========================
+    base[0][0].compute("lala = 5")
