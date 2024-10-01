@@ -13,8 +13,6 @@ import io
 import csv
 import h5py as hdf
 
-# Orion
-import Core as Orion
 from SharedMethods import SharedMethods
 
 # Message mode

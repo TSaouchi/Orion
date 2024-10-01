@@ -9,10 +9,10 @@ __github_url__='https://github.com/TSaouchi/Orion'
 
 # Default variables
 DEFAULT_NAME = 'Orion'
+DEFAULT_VERBOSE = True
 DEFAULT_SIMULATION_TYPE = '1D'
 DEFAULT_ZONE_NAME = ['Zone']
 DEFAULT_INSTANT_NAME = ['Instant']
-DEFAULT_VERBOSE = False
 DEFAULT_SIMULATION_SETTINGS = {
     'tolerance': 1e-5,
     'max_iterations': 1000

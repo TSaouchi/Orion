@@ -6,9 +6,10 @@ from concurrent.futures import ThreadPoolExecutor
 from collections import OrderedDict, defaultdict
 
 # Orion parameters
-from Core import DEFAULT_ZONE_NAME, DEFAULT_INSTANT_NAME
+from Core import DEFAULT_ZONE_NAME, DEFAULT_INSTANT_NAME, DEFAULT_VERBOSE
+from SharedMethods import SharedMethods
 
-class CustomAttributes:
+class CustomAttributes(SharedMethods):
     """
     Class to manage custom attributes in a structured way.
     
@@ -19,6 +20,7 @@ class CustomAttributes:
     """
     def __init__(self):
         """Initialize an empty attribute dictionary.""" 
+        super().__init__()
         self._attributes = OrderedDict()
 
     def set_attribute(self, name, value):
@@ -245,7 +247,7 @@ class Instants(CustomAttributes):
         """
         return self.variables.keys()
     
-    def compute(self, expression):
+    def compute(self, expression, verbose=DEFAULT_VERBOSE):
         """
         Compute a new variable based on the given expression.
 
@@ -253,12 +255,15 @@ class Instants(CustomAttributes):
         ----------
         expression : str
             The expression to compute. For example, "variable3 = variable1 * variable2".
+        verbose : bool, optional
+            If True, display progress bar. Default is False.
 
         Example
         -------
-        >>> instant.compute('variable3 = variable1 * variable2')
+        >>> instant.compute('variable3 = variable1 * variable2', verbose=True)
         >>> instant.compute('Time = 5 + Time')  # Handles self-referential computations
         """
+        if verbose: self.print_text("info", "Computing...")
         var_name, operation = expression.split('=', 1)
         var_name = var_name.strip()
         operation = operation.strip()
@@ -268,18 +273,16 @@ class Instants(CustomAttributes):
                              if bool(re.search(rf'\b{re.escape(var)}\b', operation)))
 
         if all(var in self.variables for var in variables_used):
-            # Create a local namespace for evaluation
             local_namespace = {var: self.variables[var].data for var in variables_used}
             
             try:
-                # Evaluate the expression in the local namespace
-                result = eval(operation, globals(), local_namespace)
-                
-                # Add or update the variable
-                if var_name in self.variables:
-                    self.variables[var_name].data = da.array(result)
-                else:
-                    self.add_variable(var_name, result)
+                for _ in self.tqdm_wrapper(range(1), desc="Variables", verbose=verbose):
+                    result = eval(operation, globals(), local_namespace)
+                    
+                    if var_name in self.variables:
+                        self.variables[var_name].data = da.array(result)
+                    else:
+                        self.add_variable(var_name, result)
             except Exception as e:
                 print(f"Error evaluating expression '{expression}': {e}")
         else:
@@ -434,7 +437,7 @@ class Zones(CustomAttributes):
         """
         return self.instants.keys()
     
-    def compute(self, expression):
+    def compute(self, expression, verbose=DEFAULT_VERBOSE):
         """
         Compute a new variable based on the given expression and apply it across all instants in the zone.
 
@@ -442,13 +445,16 @@ class Zones(CustomAttributes):
         ----------
         expression : str
             The expression to compute. For example, "variable3 = variable1 * variable2".
+        verbose : bool, optional
+            If True, display progress bar. Default is False.
 
         Example
         -------
-        >>> zone.compute('variable3 = variable1 * variable2')
+        >>> zone.compute('variable3 = variable1 * variable2', verbose=True)
         """
-        for instant in self.instants.values():
-            instant.compute(expression)
+        if verbose: self.print_text("info", "Computing...")
+        for instant in self.tqdm_wrapper(self.instants.values(), desc="Instants ", verbose=verbose):
+            instant.compute(expression, verbose = False)
 
 class Base(CustomAttributes):
     """
@@ -684,7 +690,7 @@ class Base(CustomAttributes):
         """
         return self.zones.keys()
     
-    def compute(self, expression):
+    def compute(self, expression, verbose=DEFAULT_VERBOSE):
         """
         Compute a new variable based on the given expression and apply it across all zones and instants.
 
@@ -692,34 +698,29 @@ class Base(CustomAttributes):
         ----------
         expression : str
             The expression to compute. For example, "variable3 = variable1 * variable2" or "Time = 5 + Time".
+        verbose : bool, optional
+            If True, display progress bar. Default is False.
 
         Example
         -------
-        >>> base.compute('variable3 = variable1 * variable2')
+        >>> base.compute('variable3 = variable1 * variable2', verbose=True)
         >>> base.compute('Time = 5 + Time')
         """
-        # Parse the expression: "variable3 = variable1 * variable2"
+        if verbose: self.print_text("info", "Computing...")
         var_name, operation = expression.split('=', 1)
         var_name = var_name.strip()
         operation = operation.strip()
 
-        # Identify all variables mentioned in the expression
         variables_in_expression = set()
         for zone in self.zones.values():
             for instant in zone.instants.values():
                 variables_in_expression.update(instant.variables.keys())
 
-        variables_used = set()
-        for var in variables_in_expression:
-            if bool(re.search(rf'\b{re.escape(var)}\b', operation)):
-                variables_used.add(var)
+        variables_used = set(var for var in variables_in_expression 
+                             if bool(re.search(rf'\b{re.escape(var)}\b', operation)))
 
-        # Function to evaluate and add the computed variable
         def evaluate_and_add_variable(instant, var_name, operation, variables_used):
-            local_namespace = {}
-            for var in variables_used:
-                if var in instant.variables:
-                    local_namespace[var] = instant.variables[var].data
+            local_namespace = {var: instant.variables[var].data for var in variables_used if var in instant.variables}
             
             try:
                 result = eval(operation, globals(), local_namespace)
@@ -730,18 +731,19 @@ class Base(CustomAttributes):
             except Exception as e:
                 print(f"Error evaluating expression '{operation}' in instant: {e}")
 
+        total_instants = sum(len(zone.instants) for zone in self.zones.values())
         with ThreadPoolExecutor() as executor:
             futures = []
             for zone in self.zones.values():
                 for instant in zone.instants.values():
                     if not variables_used or all(var in instant.variables for var in variables_used):
-                        futures.append(
-                            executor.submit(evaluate_and_add_variable,
-                                            instant, var_name, operation, variables_used)
-                        )
+                        future = executor.submit(evaluate_and_add_variable,
+                                                 instant, var_name, operation, variables_used)
+                        futures.append(future)
 
             # Wait for all computations to finish
-            for future in futures:
+            for future in self.tqdm_wrapper(futures, desc="Zones    ", 
+                                       verbose=verbose):
                 future.result()
 
     def show(self, stats = False):
@@ -758,11 +760,11 @@ class Base(CustomAttributes):
         >>> base.show()
         >>> base.show(stats=True)
         """
-        print("Base")
+        self.print_text("text", "Base")
         for zone_name, zone in self.zones.items():
-            print(f"  Zone: {zone_name}")
+            self.print_text("check", f"  Zone: {zone_name}")
             for instant_name, instant in zone.instants.items():
-                print(f"    Instant: {instant_name}")
+                self.print_text("check", f"    Instant: {instant_name}")
                 for var_name, variable in instant.variables.items():
                     data = variable.data
                     msg = \
@@ -774,7 +776,7 @@ class Base(CustomAttributes):
                             f"({np.round(data.min().compute(), 2)}, " + \
                             f"{np.round(data.mean().compute(), 2)}, " + \
                             f"{np.round(data.max().compute(), 2)})"
-                    print(msg)
+                    self.print_text("blue", msg)
 
 if __name__ == "__main__":
     import time

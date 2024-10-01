@@ -2,12 +2,12 @@
 import os
 import re
 from collections import defaultdict
+from tqdm import tqdm
 
 # Data processing
 import numpy as np
 
-# Orion
-import Core as Orion
+from Core import DEFAULT_VAR_SYNONYMS
 
 class SharedMethods():
     def __init__(self):
@@ -83,7 +83,7 @@ class SharedMethods():
         """
         
        
-        VAR_SYNONYMS = Orion.DEFAULT_VAR_SYNONYMS
+        VAR_SYNONYMS = DEFAULT_VAR_SYNONYMS
         all_base_variables = self.variables_location(base)
         var_to_rename = list(set(all_base_variables) - set(list(VAR_SYNONYMS.keys())))
         mapping_var = {item: key for item in var_to_rename for key, synonyms in VAR_SYNONYMS.items() if item in synonyms}
@@ -157,10 +157,23 @@ class SharedMethods():
             - The function automatically resets the text color to default after printing.
         """
         colors = {
-            'error': "\x1B[31m",
-            'check': "\x1B[32m",
-            'info': "\x1B[34m",
-            'warning': "\x1B[33m",  #:Adding orange color for 'warning'
+            'error': "\x1B[31m",     # Red
+            'check': "\x1B[32m",     # Green
+            'info': "\x1B[34m",      # Blue
+            'warning': "\x1B[33m",   # Yellow
+            'text': "\x1B[37m",      # White
+            'reset': "\x1B[0m",      # Reset to default color
+            'black': "\x1B[30m",     # Black
+            'cyan': "\x1B[36m",      # Cyan
+            'magenta': "\x1B[35m",   # Magenta
+            'red': "\x1B[91m",       # Bright Red
+            'green': "\x1B[92m",     # Bright Green
+            'yellow': "\x1B[93m",    # Bright Yellow
+            'blue': "\x1B[94m",      # Bright Blue
+            'magenta': "\x1B[95m",   # Bright Magenta
+            'cyan': "\x1B[96m",      # Bright Cyan
+            'light_gray': "\x1B[37m",# Light Gray
+            'dark_gray': "\x1B[90m"  # Dark Gray
         }
 
         try:
@@ -175,6 +188,32 @@ class SharedMethods():
 
         except ValueError as e:
             print("Warning:", e)
+
+    def tqdm_wrapper(self, iterable, desc=None, unit=None, verbose=False):
+        """
+        A generic wrapper for tqdm progress bar.
+
+        Parameters:
+        -----------
+        iterable : iterable
+            The iterable to wrap with tqdm.
+        desc : str, optional
+            Description to be displayed alongside the progress bar.
+        unit : str, optional
+            The unit of the items being iterated over.
+        verbose : bool, optional
+            If True, use tqdm. If False, return the original iterable. Default is False.
+
+        Returns:
+        --------
+        iterable
+            The original iterable wrapped with tqdm if verbose is True, otherwise the original iterable.
+        """
+        if verbose:
+            unit = "ops" if  unit is None else unit
+            return tqdm(iterable, desc=desc, unit=unit, unit_scale=True, 
+                        ncols=80, colour="green")
+        return iterable
 
     def is_pycgns_available(self):
         try:

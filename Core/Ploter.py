@@ -1,8 +1,6 @@
 # Path and Char manipulation
 import os
 
-# Orion
-import Core as Orion
 from SharedMethods import SharedMethods
 
 # Message mode
