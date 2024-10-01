@@ -90,7 +90,141 @@ The project documentation is generated using [Sphinx](https://www.sphinx-doc.org
 
 ### Basic Example
 
-[Example](Documentation\source\_static\pictures\Basic_Example.ipynb)
+> Code lines
+
+```python
+import numpy as np
+
+import Core as Orion
+from DataProcessor import Processor
+
+# Initialize the base object
+base = Orion.Base()
+base.init(['zone_1', 'zone_2'], ['instant_1', 'instant_2'])
+
+# Explore the base
+base.show()
+```
+
+> Output
+
+```consol
+========================================================
+                     Orion Project                      
+========================================================
+Author: Toufik Saouchi
+Version: <project version>
+========================================================
+
+Base
+  Zone: zone_1
+    Instant: instant_1
+    Instant: instant_2
+  Zone: zone_2
+    Instant: instant_1
+    Instant: instant_2
+```
+
+> Code lines
+
+``` python
+# Add variables to the instant
+base["zone_1"]["instant_1"].add_variable("Velocity", np.random.randint(1, 101, size=(8, 30)))
+base["zone_1"]["instant_1"].add_variable("Pressure", np.random.randint(1, 101, size=(8, 30)))
+base["zone_1"]["instant_1"]["Velocity"].set_attribute("Unit", "m/s")
+```
+
+Or by using indices rather than keys,
+
+> Code lines
+
+``` python
+# Add variables to the instant
+base[0][0].add_variable("Velocity", np.random.randint(1, 101, size=(8, 30)))
+base[0][0].add_variable("Pressure", np.random.randint(1, 101, size=(8, 30)))
+base[0][0][0].set_attribute("Unit", "m/s")
+
+# Explore the base
+base.show()
+base[0][0][0]._attributes
+```
+
+> Output
+
+```consol
+Base
+  Zone: zone_1
+    Instant: instant_1
+      Variable: Velocity -> Shape :(8, 30)
+      Variable: Pressure -> Shape :(8, 30)
+    Instant: instant_2
+  Zone: zone_2
+    Instant: instant_1
+    Instant: instant_2
+
+OrderedDict([('Unit', 'm/s')])
+```
+
+> Code lines
+
+```python
+# Compute accross all the base using literal expressions
+base[0][0].add_variable("Density", 1.08)
+base.compute("Ratio = Pressure/(Density*pow(Velocity, 2))")
+
+# Explore the base
+base.show(stats = True)
+```
+
+> Output
+
+```consol
+Base
+  Zone: zone_1
+    Instant: instant_1
+      Variable: Velocity -> Shape :(8, 30), stats(min, mean, max): (1, 51.42, 100)
+      Variable: Pressure -> Shape :(8, 30), stats(min, mean, max): (1, 50.5, 100)
+      Variable: Density -> Shape :(), stats(min, mean, max): (1.08, 1.08, 1.08)
+      Variable: Ratio -> Shape :(8, 30), stats(min, mean, max): (0.0, 0.83, 64.81)
+    Instant: instant_2
+  Zone: zone_2
+    Instant: instant_1
+    Instant: instant_2
+```
+
+The use of Orion will largely depend on the user's experience with Python. Orion's documentation offers a variety of features, along with numerous examples and tips for effective usage.
+
+For example, the compute method performs computations only when the variables in the expression are present in the instance. Otherwise, the expression is evaluated in parallel across all instances, and the results are always returned in a Dask array format.
+
+> Code lines
+
+```python
+# Compute 
+base.compute("Element_number = 5")
+
+# Explore the base
+base.show(stats = True)
+```
+
+> Output
+
+```consol
+Base
+  Zone: zone_1
+    Instant: instant_1
+      Variable: Velocity -> Shape :(8, 30), stats(min, mean, max): (1, 47.05, 100)
+      Variable: Pressure -> Shape :(8, 30), stats(min, mean, max): (1, 47.34, 100)
+      Variable: Density -> Shape :(), stats(min, mean, max): (1.08, 1.08, 1.08)
+      Variable: Ratio -> Shape :(8, 30), stats(min, mean, max): (0.0, 0.99, 50.0)
+      Variable: Element_number -> Shape :(), stats(min, mean, max): (5, 5.0, 5)
+    Instant: instant_2
+      Variable: Element_number -> Shape :(), stats(min, mean, max): (5, 5.0, 5)
+  Zone: zone_2
+    Instant: instant_1
+      Variable: Element_number -> Shape :(), stats(min, mean, max): (5, 5.0, 5)
+    Instant: instant_2
+      Variable: Element_number -> Shape :(), stats(min, mean, max): (5, 5.0, 5)
+```
 
 # Author
 The Orion library was created and is maintained - in my free time ;) - by Toufik Saouchi
