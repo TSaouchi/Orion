@@ -263,7 +263,7 @@ class Instants(CustomAttributes):
         >>> instant.compute('variable3 = variable1 * variable2', verbose=True)
         >>> instant.compute('Time = 5 + Time')  # Handles self-referential computations
         """
-        if verbose: self.print_text("info", "Computing...")
+        if verbose: self.print_text("info", "\nComputing")
         var_name, operation = expression.split('=', 1)
         var_name = var_name.strip()
         operation = operation.strip()
@@ -452,7 +452,7 @@ class Zones(CustomAttributes):
         -------
         >>> zone.compute('variable3 = variable1 * variable2', verbose=True)
         """
-        if verbose: self.print_text("info", "Computing...")
+        if verbose: self.print_text("info", "\nComputing")
         for instant in self.tqdm_wrapper(self.instants.values(), desc="Instants ", verbose=verbose):
             instant.compute(expression, verbose = False)
 
@@ -706,7 +706,7 @@ class Base(CustomAttributes):
         >>> base.compute('variable3 = variable1 * variable2', verbose=True)
         >>> base.compute('Time = 5 + Time')
         """
-        if verbose: self.print_text("info", "Computing...")
+        if verbose: self.print_text("info", "\nComputing")
         var_name, operation = expression.split('=', 1)
         var_name = var_name.strip()
         operation = operation.strip()
@@ -731,7 +731,6 @@ class Base(CustomAttributes):
             except Exception as e:
                 print(f"Error evaluating expression '{operation}' in instant: {e}")
 
-        total_instants = sum(len(zone.instants) for zone in self.zones.values())
         with ThreadPoolExecutor() as executor:
             futures = []
             for zone in self.zones.values():
@@ -760,7 +759,7 @@ class Base(CustomAttributes):
         >>> base.show()
         >>> base.show(stats=True)
         """
-        self.print_text("text", "Base")
+        self.print_text("text", "\nBase: ")
         for zone_name, zone in self.zones.items():
             self.print_text("check", f"  Zone: {zone_name}")
             for instant_name, instant in zone.instants.items():

@@ -137,7 +137,7 @@ from .Formulas import *
 from .SharedMethods import *
 
 # Calculate the width of the header
-header_width = 56
+header_width = 80
 
 # Center the title within the header width
 project_title = f"{__title__} Project"
