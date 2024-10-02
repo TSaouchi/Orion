@@ -108,7 +108,7 @@ base.show()
 
 > Output
 
-```consol
+```bash
 ========================================================
                      Orion Project                      
 ========================================================
@@ -151,7 +151,7 @@ base[0][0][0]._attributes
 
 > Output
 
-```consol
+```bash
 Base:
   Zone: zone_1
     Instant: instant_1
@@ -172,13 +172,18 @@ OrderedDict([('Unit', 'm/s')])
 base[0][0].add_variable("Density", 1.08)
 base.compute("Ratio = Pressure/(Density*pow(Velocity, 2))")
 
+# Compute inplace on the same variable 
+base.compute("Ratio = np.abs(Ratio - np.mean(Ratio))")
+
 # Explore the base
 base.show(stats = True)
 ```
 
 > Output
 
-```consol
+```bash
+Computing~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Zones    : 100%|███████████████████████████████████| 1.00/1.00 [00:00<?, ?ops/s]
 Computing~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Zones    : 100%|███████████████████████████████████| 1.00/1.00 [00:00<?, ?ops/s]
 
@@ -195,7 +200,8 @@ Base:
     Instant: instant_2
 ```
 
-The use of Orion will largely depend on the user's experience with Python. Orion's documentation offers a variety of features, along with numerous examples and tips for effective usage.
+> [!IMPORTANT]
+> The use of Orion will largely depend on the user's experience with Python. Orion's documentation offers a variety of features, along with numerous examples and tips for effective usage.
 
 For example, the compute method performs computations only when the variables in the expression are present in the instance. Otherwise, the expression is evaluated in parallel across all instances, and the results are always returned in a Dask array format.
 
@@ -211,7 +217,7 @@ base.show(stats = True)
 
 > Output
 
-```consol
+```bash
 Computing~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Zones    : 100%|███████████████████████████████████| 4.00/4.00 [00:00<?, ?ops/s]
 
