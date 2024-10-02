@@ -203,7 +203,7 @@ Base:
 > [!IMPORTANT]
 > The use of Orion will largely depend on the user's experience with Python. Orion's documentation offers a variety of features, along with numerous examples and tips for effective usage.
 
-For example, the compute method performs computations only when the variables in the expression are present in the instance. Otherwise, the expression is evaluated in parallel across all instances, and the results are always returned in a Dask array format.
+For example, the compute method performs computations only when the variables in the expression are present in the base's ``Instant``. Otherwise, the expression is evaluated in parallel across all ``Instants``, and the results are always returned in a Dask array format.
 
 > Code lines
 
