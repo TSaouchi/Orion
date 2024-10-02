@@ -23,7 +23,10 @@ import ast
 
 # Signal processing
 import scipy as spy
-from scipy.signal import butter, cheby1, cheby2, ellip, bessel, filtfilt, savgol_filter, welch
+from scipy.signal import ( 
+                          butter, cheby1, cheby2, ellip, bessel, filtfilt, 
+                          savgol_filter, welch, find_peaks
+                          )
 
 # Orion
 import Core as Orion
@@ -193,17 +196,6 @@ class Processor(SharedMethods):
         time_name = Orion.DEFAULT_TIME_NAME[0]
         time_step_name = Orion.DEFAULT_TIMESTEP_NAME[0]
 
-        if np.any(frequencies_band):
-            if not isinstance(frequencies_band, (tuple, list)):
-                print("Frequencies band type can be tuple or list.")
-                raise ValueError
-
-            if not isinstance(frequencies_band, (tuple, list)):
-                raise TypeError("Frequencies band must be a tuple or list.")
-
-            if len(frequencies_band) != 2:
-                frequencies_band = [np.min(frequencies_band), np.max(frequencies_band)]
-
         if decomposition_type not in ["im/re", "mod/phi", "both", 'complex']:
             raise ValueError("Invalid decomposition_type. Choose from 'im/re',"
                              "'mod/phi', complex, or 'both'.")
@@ -232,6 +224,10 @@ class Processor(SharedMethods):
                     # Compute the FFT using Dask
                     fft_value = da.fft.fft(value, axis=0)
                     fft_freqs = da.fft.fftfreq(len(value), d=time_step)
+                    
+                    # Convert to dask arrays
+                    fft_value = self.__numpy_to_dask(fft_value)
+                    fft_freqs = self.__numpy_to_dask(fft_freqs)
 
                     # Only take the positive frequencies (since FFT is symmetric)
                     if np.any(frequencies_band):
@@ -303,17 +299,6 @@ class Processor(SharedMethods):
         -------
         >>> psd_data = base.psd(frequencies_band=(0.1, 10))
         """
-        if np.any(frequencies_band):
-            if not isinstance(frequencies_band, (tuple, list)):
-                print("Frequencies band type can be tuple or list.")
-                raise ValueError
-
-            if not isinstance(frequencies_band, (tuple, list)):
-                raise TypeError("Frequencies band must be a tuple or list.")
-
-            if len(frequencies_band) != 2:
-                frequencies_band = [np.min(frequencies_band), np.max(frequencies_band)]
-
         invariant_variables = kwargs.get("invariant_variables",
                                          Orion.DEFAULT_TIME_NAME)
         time_name = Orion.DEFAULT_TIME_NAME[0]
@@ -340,14 +325,17 @@ class Processor(SharedMethods):
 
                     if time_step is None:
                         time_step = 1/len(value)
-
+                    
                     psd_freqs, psd_value = welch(value, fs=1/time_step,
                                                  nperseg=len(value)//8)
+                    
+                    psd_freqs = self.__numpy_to_dask(psd_freqs)
+                    psd_value = self.__numpy_to_dask(psd_value)
 
                     if np.any(frequencies_band):
                         mask = self.__mask_band(psd_freqs, frequencies_band)
-                        psd_freqs = psd_freqs[mask]
-                        psd_value = psd_value[mask]
+                        psd_freqs = psd_freqs[mask.compute()]
+                        psd_value = psd_value[mask.compute()]
 
                     psd_base[zone][instant].add_variable(
                         Orion.DEFAULT_FREQUENCY_NAME[0], psd_freqs)
@@ -577,7 +565,106 @@ class Processor(SharedMethods):
                                                           gradient_value[0].reshape(variable_obj.shape))
         
         return gradient_base
+    
+    def peak(self, dependent_variables = Orion.DEFAULT_TIME_NAME, properties = False, **kwargs):
+        """
+        Detect peaks in the variables of the dataset and return a modified version of the dataset with peak values.
 
+        Parameters
+        ----------
+        dependent_variables : list, optional
+            List of variable names with respect to which all other variables are computed. These values
+            will be retained and stored as attributes for each variable alongside the detected peaks.
+            If not provided, defaults to Orion.DEFAULT_TIME_NAME.
+        
+        properties : bool, optional
+            If set to True, additional properties of the detected peaks will be stored as attributes 
+            for each variable. Defaults to False.
+            
+        **kwargs : keyword arguments, optional
+            Additional parameters to be passed to the `__detect_peaks` function, including:
+            
+            - `height`: Required height of peaks.
+            - `threshold`: Required threshold of the signal for a peak to be considered.
+            - `distance`: Minimum distance between each peak.
+            - `prominence`: Required prominence of peaks.
+            - `width`: Required width of peaks.
+            - `wlen`: Window length for peak detection.
+            - `rel_height`: Relative height for width calculation. Defaults to 0.5.
+            - `plateau_size`: Size of the flat top of peaks if plateaus are present.
+
+        Returns
+        -------
+        Orion.Base
+            A modified dataset similar to `self.base` where the variables have been replaced by their detected peak values.
+            The dependent variables are stored as attributes for each variable and associated with the detected peaks.
+
+        Example
+        -------
+        >>> peak_base = processor(base).peak(dependent_variables=['TimeValue'], 
+        height=0.5, distance=2)
+        """
+                
+        peak_base = copy.deepcopy(self.base)
+        for zone, instant in self.base.items():
+            for variable_name, variable_obj in list(self.base[zone][instant].items()):
+                peaks_indices, properties = self.__detect_peaks(variable_obj, 
+                                                                **kwargs)
+                peak_base[zone][instant].add_variable(variable_name,
+                                                    variable_obj[peaks_indices])
+                if properties:
+                    for propertie, value in properties.items():
+                        peak_base[zone][instant][variable_name].set_attribute(propertie, 
+                                                                              self.__numpy_to_dask(value))
+                if dependent_variables is None:
+                    peak_base[zone][instant][variable_name].set_attribute("peaks_indices", 
+                                                                                peaks_indices)
+                else:
+                    for dependent_variable in dependent_variables:
+                        invariant_variables_value = \
+                        self.base[zone][instant][dependent_variable][peaks_indices]
+                        peak_base[zone][instant][variable_name].set_attribute(dependent_variable, 
+                                                                                invariant_variables_value)
+                    
+        return peak_base
+    
+    def clamp(self, target_variable = Orion.DEFAULT_TIME_NAME[0], 
+              clamp_band = (None, None)):
+        """
+        Clamp the variables in the dataset within a specified range of the target variable.
+
+        Parameters
+        ----------
+        target_variable : str, optional
+            The name of the variable used as the reference for clamping. This variable determines the range 
+            for other variables. Defaults to the first value in `Orion.DEFAULT_TIME_NAME`.
+            
+        clamp_band : tuple, optional
+            A tuple specifying the lower and upper bounds for clamping the target variable. 
+            Only values within this range will be retained in the dataset. Defaults to (None, None), 
+            meaning no clamping is applied.
+
+        Returns
+        -------
+        dict
+            A modified dataset similar to `self.base`, where variables are clamped based on the specified 
+            target variable and clamp band. Only the data within the clamp band for the target variable is retained.
+
+        Example
+        -------
+        >>> clamp_base = processor(base).clamp(target_variable='TimeValue', clamp_band=(0, 10))
+        """
+        clamp_base = copy.deepcopy(self.base)
+        for zone, instant in self.base.items():
+            target_variable_value = self.base[zone][instant][target_variable].data
+            mask = self.__mask_band(target_variable_value, clamp_band)
+            for variable_name, variable_obj in list(self.base[zone][instant].items()):
+                if len(target_variable_value) == len(variable_obj):
+                    clamp_base[zone][instant].add_variable(variable_name,
+                                                        variable_obj[mask.compute()])
+    
+        return clamp_base        
+    
     def detrend(self, type = None, **kwargs):
         """
         Detrend the variables in the base object, removing a specified trend type from the data.
@@ -1153,7 +1240,54 @@ class Processor(SharedMethods):
         result = spy.optimize.minimize(fit_transfer_function, initial_params,
                           method='Nelder-Mead')
         return result.x
+    
+    def __detect_peaks(self, signal, **kwargs):
+        """
+        Detect peaks in a given signal using SciPy's `find_peaks` function.
 
+        Parameters
+        ----------
+        signal : array-like
+            The signal data in which to detect peaks.
+            
+        **kwargs : keyword arguments, optional
+            Parameters for customizing peak detection:
+            
+            - `height`: Required height of peaks.
+            - `threshold`: Required threshold of the signal for a peak to be considered.
+            - `distance`: Minimum distance between each peak.
+            - `prominence`: Required prominence of peaks.
+            - `width`: Required width of peaks.
+            - `wlen`: Window length for peak detection.
+            - `rel_height`: Relative height for width calculation. Defaults to 0.5.
+            - `plateau_size`: Size of the flat top of peaks if plateaus are present.
+
+        Returns
+        -------
+        tuple
+            A tuple containing:
+            - Indices of the detected peaks.
+            - Properties of the detected peaks as a dictionary.
+
+        Example
+        -------
+        >>> signal = np.array([0, 1, 0.5, 1.5, 1, 0, 1])
+        >>> peaks_indices, properties = processor.__detect_peaks(signal, height=1)
+        >>> print(peaks_indices)
+        [1, 3, 6]
+        """
+        height = kwargs.get('height', None)
+        threshold = kwargs.get('threshold', None)
+        distance = kwargs.get('distance', None)
+        prominence = kwargs.get('prominence', None)
+        width = kwargs.get('width', None)
+        wlen = kwargs.get('wlen', None)
+        rel_height = kwargs.get('rel_height', 0.5)
+        plateau_size = kwargs.get('plateau_size', None)
+        
+        return find_peaks(signal, height, threshold, distance, prominence, width, 
+                          wlen, rel_height, plateau_size)
+        
     def __compute_gradient(self, variable, varargs  = None, edge_order = None, 
                            axis = None):
         """
@@ -1249,7 +1383,6 @@ class Processor(SharedMethods):
 
         elif min_band is None and max_band is not None:
             mask = input_signal <= max_band
-
         else:
             raise ValueError("At least one of min_band or max_band must be provided.")
 

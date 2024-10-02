@@ -63,7 +63,10 @@ class CustomAttributes(SharedMethods):
         name : str
             The name of the attribute to delete.
         """
-        self._attributes.pop(name, None)
+        try:
+            del self._attributes[name]
+        except KeyError:
+            raise KeyError(f"Attribute '{name}' does not exist.")
 
     def rename_attribute(self, old_name, new_name):
         """
@@ -76,8 +79,9 @@ class CustomAttributes(SharedMethods):
         new_name : str
             The new name of the attribute.
         """
-        if old_name in self._attributes:
-            self._attributes[new_name] = self._attributes.pop(old_name)
+        if old_name not in self._attributes:
+            raise KeyError(f"Attribute '{old_name}' does not exist.")
+        self._attributes[new_name] = self._attributes.pop(old_name)
 
 class Variables(CustomAttributes):
     """
