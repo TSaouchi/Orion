@@ -509,6 +509,10 @@ class Processor(SharedMethods):
                     
                 normalize_base[zone][instant].add_variable(variable_name, 
                                                            normalization)
+                normalize_base[zone][instant][variable_name].set_attribute("MaxValue", 
+                                                                           use_upper)
+                normalize_base[zone][instant][variable_name].set_attribute("MinValue", 
+                                                                           use_lower)
 
         return normalize_base
     

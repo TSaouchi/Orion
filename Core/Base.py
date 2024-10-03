@@ -36,7 +36,7 @@ class CustomAttributes(SharedMethods):
         """
         self._attributes[name] = value
 
-    def get_attribute(self, name, default = None):
+    def get_attribute(self, name = None, default = None):
         """
         Get the value of an attribute.
 
@@ -52,6 +52,8 @@ class CustomAttributes(SharedMethods):
         Any
             The value of the attribute, or the default value if not found.
         """
+        if not name:
+            return self._attributes
         return self._attributes.get(name, default)
 
     def delete_attribute(self, name):
