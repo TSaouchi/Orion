@@ -605,27 +605,50 @@ class Processor(SharedMethods):
         height=0.5, distance=2)
         """
                 
-        peak_base = copy.deepcopy(self.base)
+        peak_base = Orion.Base()
+        peak_base.add_zone(list(self.base.keys()))
+        base_variable = self.variables_location(self.base)
         for zone, instant in self.base.items():
+            peak_base[zone].add_instant(instant)
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
-                peaks_indices, properties = self.__detect_peaks(variable_obj, 
-                                                                **kwargs)
-                peak_base[zone][instant].add_variable(variable_name,
-                                                    variable_obj[peaks_indices])
-                if properties:
-                    for propertie, value in properties.items():
-                        peak_base[zone][instant][variable_name].set_attribute(propertie, 
-                                                                              self.__numpy_to_dask(value))
-                if dependent_variables is None:
-                    peak_base[zone][instant][variable_name].set_attribute("peaks_indices", 
-                                                                                peaks_indices)
-                else:
-                    for dependent_variable in dependent_variables:
-                        invariant_variables_value = \
-                        self.base[zone][instant][dependent_variable][peaks_indices]
-                        peak_base[zone][instant][variable_name].set_attribute(dependent_variable, 
-                                                                                invariant_variables_value)
+                try:
+                    if len(variable_obj.shape) > 1 and np.max(variable_obj.shape) > 1:
+                        self.print_text("warning", f"Skipping {variable_name} in {zone}/{instant}: Not a 1D array")
+                        continue
+
+                    peaks_indices, properties = self.__detect_peaks(variable_obj, 
+                                                                    **kwargs)
+                    if len(peaks_indices) == 0:
+                        self.print_text("warning", f"No peaks detected for {variable_name} in {zone}/{instant}")
+                        continue
                     
+                    peak_base[zone][instant].add_variable(variable_name,
+                                                        variable_obj[peaks_indices])
+                    if properties:
+                        for propertie, value in properties.items():
+                            peak_base[zone][instant][variable_name].set_attribute(
+                                propertie, self.__numpy_to_dask(value))
+                            
+                    if dependent_variables is None:
+                        peak_base[zone][instant][variable_name].set_attribute(
+                            "peaks_indices", peaks_indices)
+                    else:
+                        for dependent_variable in dependent_variables:
+                            if dependent_variable in base_variable:
+                                dependent_variables_value = \
+                                self.base[zone][instant][dependent_variable].data
+                                
+                                if len(dependent_variables_value) == \
+                                    len(peaks_indices):
+                                    continue
+                                
+                                peak_base[zone][instant][variable_name].set_attribute(
+                                    dependent_variable, 
+                                    dependent_variables_value[peaks_indices])
+                            else:
+                                self.print_text("warning", f"Dependent variable {dependent_variable} not found in {zone}/{instant}")
+                except Exception as e:
+                    self.print_text("error", f"Error processing {variable_name} in {zone}/{instant}: {str(e)}")
         return peak_base
     
     def clamp(self, target_variable = Orion.DEFAULT_TIME_NAME[0], 
@@ -654,14 +677,24 @@ class Processor(SharedMethods):
         -------
         >>> clamp_base = processor(base).clamp(target_variable='TimeValue', clamp_band=(0, 10))
         """
+        base_variable = self.variables_location(self.base)
+        if  target_variable not in base_variable:
+            self.print_text("error", f"Target variable {target_variable} not found in base")
+            raise
+
         clamp_base = copy.deepcopy(self.base)
         for zone, instant in self.base.items():
+            if target_variable not in self.base[zone][instant].keys():
+                continue
+            
             target_variable_value = self.base[zone][instant][target_variable].data
             mask = self.__mask_band(target_variable_value, clamp_band)
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
                 if len(target_variable_value) == len(variable_obj):
                     clamp_base[zone][instant].add_variable(variable_name,
                                                         variable_obj[mask.compute()])
+                else:
+                    self.print_text("warning", f"Skipping {variable_name} in {zone}/{instant}: Length mismatch")
     
         return clamp_base        
     
@@ -1375,7 +1408,7 @@ class Processor(SharedMethods):
         # Handle various cases for min_band and max_band
         if min_band is not None and max_band is not None:
             if min_band >= max_band:
-                raise ValueError("min_band cannot be greater than max_band.")
+                min_band, max_band = np.min(band), np.max(band)
             mask = (input_signal >= min_band) & (input_signal <= max_band)
 
         elif min_band is not None and max_band is None:
@@ -1384,7 +1417,8 @@ class Processor(SharedMethods):
         elif min_band is None and max_band is not None:
             mask = input_signal <= max_band
         else:
-            raise ValueError("At least one of min_band or max_band must be provided.")
+            return  np.ones_like(input_signal, dtype=bool)
+
 
         return mask
 
