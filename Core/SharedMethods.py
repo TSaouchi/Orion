@@ -180,7 +180,7 @@ class SharedMethods():
             if level not in colors:
                 raise ValueError(f"Invalid logging level: {level}")
             complet_text = colors[level] + text
-            dotdot = (80 - len(text))*'~'
+            dotdot = (80 - len(text))*'_'
             if level == 'info':
                 print(complet_text + dotdot + "\x1B[0m")
             else:

@@ -1,5 +1,7 @@
 # Path and Char manipulation
 import os
+import colorsys
+import math
 
 from SharedMethods import SharedMethods
 
@@ -13,7 +15,8 @@ class Plot(SharedMethods):
     """
     A class for grouping plotting methods.
     """
-    def __init__(self, path, dir_name_tag = "output", files_name_tag = "output_result"):
+    def __init__(self, path, dir_name_tag = "output", 
+                 files_name_tag = "output_result", format = 'html'):
         """
         Initialize the Plot class with path, directory name, and file name tags.
 
@@ -33,8 +36,9 @@ class Plot(SharedMethods):
         self.dir_name_tag = dir_name_tag
         self.files_name_tag = files_name_tag
         self.path = path
+        self.format = format
 
-    def cartesian_plot_to_html(self, plot_dictionary, auto_open = False):
+    def cartesian_plot(self, plot_dictionary, auto_open = False):
         """
         Plot scatter points using Plotly in Cartesian coordinates.
 
@@ -99,7 +103,7 @@ class Plot(SharedMethods):
             print(e)
             return
 
-        self.print_text("info", "\nPlotting cartesian plot...")
+        self.print_text("info", "\nPlotting cartesian plot")
 
         #:Get axis titles
         x_axis_title = list(plot_dictionary.keys())[0]
@@ -142,12 +146,17 @@ class Plot(SharedMethods):
                  
         export_path = self.export_path_check()
         output_path = os.path.join(export_path, self.files_name_tag)
-        self.print_text("check", f"\n\tHTML Plot produced in : {output_path}")
-        plot(fig, filename = output_path, auto_open = auto_open)
+        self.print_text("check", f"\n\tPlot produced in : {output_path}.{self.format}")
+        if self.format == 'html':
+            plot(fig, filename =  output_path, auto_open = auto_open)
+        else:
+            fig.write_image(f"{output_path}.{self.format}", scale = 2)
 
     def __3D_plot(self, go, fig, x_axis_title, y_axis_title, z_axis_title, x_axis, y_axis, z_axis):
+        colors = self.__generate_distinct_colors(len(x_axis['values']))
         for n, (x, y, z) in enumerate(zip(x_axis['values'], y_axis['values'], z_axis['values'])):
             mode = x_axis.get('markers', ['markers'])[n]
+            color = colors[n % len(colors)]
             if mode == 'lines':
                 fig.add_trace(go.Scatter3d(
                         x = x,
@@ -155,7 +164,9 @@ class Plot(SharedMethods):
                         z = z,
                         mode = 'lines',
                         name = x_axis['legend'][n] if 'legend' in x_axis else None,
-                        line = dict(width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
+                        line = dict(
+                            color=color,
+                            width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
                     ))
             elif mode == 'markers':
                 fig.add_trace(go.Scatter3d(
@@ -164,7 +175,9 @@ class Plot(SharedMethods):
                         z = z,
                         mode = 'markers',
                         name = x_axis['legend'][n] if 'legend' in x_axis else None,
-                        marker = dict(size = x_axis['sizes'][n] if 'sizes' in x_axis else 10)
+                        marker = dict(
+                            color=color,
+                            size = x_axis['sizes'][n] if 'sizes' in x_axis else 10)
                     ))
             else:
                 fig.add_trace(go.Scatter3d(
@@ -173,8 +186,12 @@ class Plot(SharedMethods):
                         z = z,
                         mode = 'markers+lines',
                         name = x_axis['legend'][n] if 'legend' in x_axis else None,
-                        marker = dict(size = x_axis['sizes'][n] if 'sizes' in x_axis else 10),
-                        line = dict(width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
+                        marker = dict(
+                            color=color,
+                            size = x_axis['sizes'][n] if 'sizes' in x_axis else 10),
+                        line = dict(
+                            color=color,
+                            width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
                     ))
             
         if 'scale' in x_axis.keys():
@@ -226,8 +243,10 @@ class Plot(SharedMethods):
 
     def __2D_plot(self, go, fig, x_axis_title, y_axis_title, x_axis, y_axis, 
                   secondary_y = False):
+        colors = self.__generate_distinct_colors(len(x_axis['values']))
         for n, (x, y) in enumerate(zip(x_axis['values'], y_axis['values'])):
             mode = x_axis.get('markers', ['markers'])[n]
+            color = colors[n % len(colors)]
             if secondary_y:
                 name = x_axis['legend_secondary'][n] if 'legend_secondary' in x_axis else None
             else:
@@ -238,7 +257,9 @@ class Plot(SharedMethods):
                             y = y,
                             mode = 'lines',
                             name = name,
-                            line = dict(width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
+                            line = dict(
+                                color=color,
+                                width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
                         ),
                         secondary_y = secondary_y
                         )
@@ -248,7 +269,9 @@ class Plot(SharedMethods):
                             y = y,
                             mode = 'markers',
                             name = name,
-                            marker = dict(size = x_axis['sizes'][n] if 'sizes' in x_axis else 10)
+                            marker = dict(
+                                color=color,
+                                size = x_axis['sizes'][n] if 'sizes' in x_axis else 10)
                         ),
                         secondary_y = secondary_y
                               )
@@ -258,8 +281,12 @@ class Plot(SharedMethods):
                             y = y,
                             mode = 'markers+lines',
                             name = name,
-                            marker = dict(size = x_axis['sizes'][n] if 'sizes' in x_axis else 10),
-                            line = dict(width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
+                            marker = dict(
+                                color=color,
+                                size = x_axis['sizes'][n] if 'sizes' in x_axis else 10),
+                            line = dict(
+                                color=color,
+                                width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
                         ),
                         secondary_y = secondary_y
                               )
@@ -294,8 +321,23 @@ class Plot(SharedMethods):
              fig.update_xaxes(range = x_axis["xlim"])
         if "ylim" in x_axis.keys():
              fig.update_yaxes(range = x_axis["ylim"])
+             
+    def __generate_distinct_colors(self, n):
+        golden_ratio = (1 + 5 ** 0.5) / 2
+        golden_angle = 2 * math.pi / (golden_ratio ** 2)
         
-    def polar_plot_to_html(self, plot_dictionary, auto_open = False):
+        colors = []
+        for i in range(n):
+            hue = (i * golden_angle) % 1
+            saturation = 0.7 + (i % 3) * 0.1  # Vary saturation slightly
+            value = 0.8 + (i % 2) * 0.2  # Vary brightness slightly
+            rgb = colorsys.hsv_to_rgb(hue, saturation, value)
+            colors.append('#{:02x}{:02x}{:02x}'.format(
+                int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255)
+            ))
+        return colors
+        
+    def polar_plot(self, plot_dictionary, auto_open = False):
         """
         Plot scatter points using Plotly in polar coordinates.
 
@@ -336,7 +378,7 @@ class Plot(SharedMethods):
             print(e)
             return
 
-        self.print_text("info", "\nPlotting polar plot...")
+        self.print_text("info", "\nPlotting polar plot")
         fig = go.Figure()
 
         # Get axis titles
@@ -351,19 +393,26 @@ class Plot(SharedMethods):
         
         export_path = self.export_path_check()
         output_path = os.path.join(export_path, self.files_name_tag)
-        self.print_text("check", f"\n\tHTML Plot produced in : {output_path}")
-        plot(fig, filename = output_path, auto_open = auto_open)
+        self.print_text("check", f"\n\tPlot produced in : {output_path}.{self.format}")
+        if self.format == 'html':
+            plot(fig, filename =  output_path, auto_open = auto_open)
+        else:
+            fig.write_image(f"{output_path}.{self.format}", scale = 2)
 
     def __polar_plot(self, go, fig, r_axis, theta_axis):
+        colors = self.__generate_distinct_colors(len(r_axis['values']))
         for n, (r, theta) in enumerate(zip(r_axis['values'], theta_axis['values'])):
             mode = r_axis.get('markers', ['markers'])[n]
+            color = colors[n % len(colors)]
             if mode == 'lines':
                 fig.add_trace(go.Scatterpolar(
                     r=r,
                     theta=theta,
                     mode='lines',
                     name=r_axis['legend'][n] if 'legend' in r_axis else None,
-                    line=dict(width=r_axis['sizes'][n] if 'sizes' in r_axis else 2)
+                    line=dict(
+                        color=color,
+                        width=r_axis['sizes'][n] if 'sizes' in r_axis else 2)
                 ))
             else:  # default
                 fig.add_trace(go.Scatterpolar(
@@ -371,6 +420,8 @@ class Plot(SharedMethods):
                     theta=theta,
                     mode='markers',
                     name=r_axis['legend'][n] if 'legend' in r_axis else None,
-                    marker=dict(size=r_axis['sizes'][n] if 'sizes' in r_axis else 10)
+                    marker=dict(
+                        color=color,
+                        size=r_axis['sizes'][n] if 'sizes' in r_axis else 10)
                 ))
         

@@ -476,9 +476,17 @@ class Processor(SharedMethods):
 
         return reduce_base
     
-    def normalization(self):
+    def normalization(self, type = 'minmax'):
         """
         Normalize the variables within the base to a specified range.
+
+        Parameters
+        ----------
+        type : str, optional
+            The type of normalization to apply. Options include:
+            - 'minmax': Normalizes the data to the range [min, max] of each variable.
+            - 'max': Normalizes the data to the range [0, max] of each variable.
+            Default is 'minmax'.
 
         Returns
         -------
@@ -488,19 +496,23 @@ class Processor(SharedMethods):
         Raises
         ------
         ValueError
-            If the lower bound is greater than the upper bound.
+            If the lower bound is greater than the upper bound for a given variable.
 
         Example
         -------
-        >>> normalized_base = base.normalization(lower=0, upper=1)
+        >>> normalized_base = base.normalization(type='minmax')
         """
         normalize_base = copy.deepcopy(self.base)
         for zone, instant in self.base.items():
             normalize_base[zone].add_instant(instant)
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
                 
-                use_lower = variable_obj.min()
-                use_upper = variable_obj.max()
+                if type == 'minmax':
+                    use_lower = variable_obj.min()
+                    use_upper = variable_obj.max()
+                if type == 'max':
+                    use_lower = 0
+                    use_upper = variable_obj.max()
                 
                 if use_lower != use_upper:
                     normalization = (variable_obj - use_lower)/(use_upper - use_lower)
