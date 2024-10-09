@@ -25,7 +25,7 @@ import ast
 import scipy as spy
 from scipy.signal import ( 
                           butter, cheby1, cheby2, ellip, bessel, filtfilt, 
-                          savgol_filter, welch, find_peaks
+                          savgol_filter, welch, find_peaks, medfilt
                           )
 
 # Orion
@@ -345,7 +345,7 @@ class Processor(SharedMethods):
 
     def filter(self, **kwargs):
         """
-        Apply a digital filter to the data using various filter types and configurations.
+        Apply a digital filter to the data using various filter types and configurations, including smoothing filters.
 
         Parameters
         ----------
@@ -356,19 +356,22 @@ class Processor(SharedMethods):
             - 'cheby2': Chebyshev Type II filter.
             - 'elliptic': Elliptic filter.
             - 'bessel': Bessel filter.
+            - 'savitzky_golay': Savitzky-Golay filter for smoothing while preserving sharp edges.
+            - 'median': Median filter for noise reduction while maintaining sharp transitions.
             Default is 'butterworth'.
 
         cutoff : float, list, tuple, optional
             The cutoff frequency or frequencies for the filter:
             - For 'low' and 'high' filters, a single cutoff frequency.
             - For 'band' and 'stop' filters, a list or tuple of two cutoff frequencies.
-            If `None`, no filtering is applied. Default is `None`.
+            If `None`, no filtering is applied. Default is `None`. Not applicable for 'savitzky_golay' and 'median'.
 
         sampling_rate : float, optional
             The rate at which samples were taken (samples per second). Default is 1000 Hz.
 
         order : int, optional
             The order of the filter. Higher values mean a steeper roll-off. Default is 5.
+            Not applicable for 'savitzky_golay' and 'median'.
 
         btype : str, optional
             The type of filter to design:
@@ -376,7 +379,19 @@ class Processor(SharedMethods):
             - 'high': High-pass filter. Allows frequencies above the cutoff to pass through.
             - 'band': Band-pass filter. Allows frequencies within the cutoff range to pass through.
             - 'stop': Band-stop (notch) filter. Blocks frequencies within the cutoff range.
-            Default is 'low'.
+            Default is 'low'. Not applicable for 'savitzky_golay' and 'median'.
+
+        window_length : int, optional
+            The length of the window for the Savitzky-Golay filter. Must be a positive odd integer. Default is 51.
+            Applicable only when `filter_type='savitzky_golay'`.
+
+        polyorder : int, optional
+            The order of the polynomial used to fit the samples for the Savitzky-Golay filter. Must be less than `window_length`. Default is 3.
+            Applicable only when `filter_type='savitzky_golay'`.
+
+        kernel_size : int, optional
+            The size of the kernel for the median filter. Must be an odd integer. Default is 11.
+            Applicable only when `filter_type='median'`.
 
         Returns
         -------
@@ -394,57 +409,87 @@ class Processor(SharedMethods):
         -----
         - The Nyquist frequency is half the sampling rate, used to normalize the cutoff frequency.
         - The `filtfilt` function is used for zero-phase filtering, ensuring no phase distortion.
+        - The Savitzky-Golay and median filters do not require a `cutoff` frequency and are mainly for noise reduction while preserving signal characteristics like sharp transitions.
 
         Example
         -------
         >>> filtered_data = base.filter(filter_type='butterworth', cutoff=500, sampling_rate=1000, order=4, btype='low')
+        >>> smoothed_data = base.filter(filter_type='savitzky_golay', window_length=51, polyorder=3)
+        >>> denoised_data = base.filter(filter_type='median', kernel_size=11)
         """
-        invariant_variables = kwargs.get("invariant_variables",
-                                         Orion.DEFAULT_TIME_NAME +
+        
+        invariant_variables = kwargs.get("invariant_variables", 
+                                         Orion.DEFAULT_TIME_NAME + 
                                          Orion.DEFAULT_FREQUENCY_NAME)
-
         filter_type = kwargs.get('filter_type', 'butterworth')
         cutoff = kwargs.get('cutoff', None)
         sampling_rate = kwargs.get('sampling_rate', 1e3)
         order = kwargs.get('order', 5)
         btype = kwargs.get('btype', 'low')
 
-        # Ensure cutoff is a list if btype is 'band' or 'stop'
-        if btype in ['band', 'stop'] and not isinstance(cutoff, (list, tuple)):
-            raise ValueError(f"For 'btype'='{btype}', 'cutoff' must be a list or tuple of two values.")
-        elif btype not in ['band', 'stop'] and isinstance(cutoff, (list, tuple)):
-            raise ValueError(f"For 'btype'='{btype}', 'cutoff' should not be a list or tuple.")
+        def validate_cutoff():
+            if btype in ['band', 'stop'] and not isinstance(cutoff, (list, tuple)):
+                raise ValueError(f"For 'btype'='{btype}', 'cutoff' must be a list or tuple of two values.")
+            elif btype not in ['band', 'stop'] and isinstance(cutoff, (list, tuple)):
+                raise ValueError(f"For 'btype'='{btype}', 'cutoff' should not be a list or tuple.")
 
-        nyquist_frequency = sampling_rate / 2.0
-        if btype in ['band', 'stop']:
-            normal_cutoff = [freq / nyquist_frequency for freq in cutoff]
-        else:
-            normal_cutoff = cutoff / nyquist_frequency
+        def normalize_cutoff():
+            if cutoff is None: return
+            nyquist_frequency = sampling_rate / 2.0
+            if btype in ['band', 'stop']:
+                return [freq / nyquist_frequency for freq in cutoff]
+            return cutoff / nyquist_frequency
 
-        if (btype in ['band', 'stop'] and (normal_cutoff[0] >= 1 or normal_cutoff[1] >= 1)) or (btype not in ['band', 'stop'] and normal_cutoff >= 1):
-            raise ValueError("Cutoff frequency must be less than the Nyquist frequency.")
+        def check_nyquist(normal_cutoff):
+            if normal_cutoff is None:  return
+            if (btype in ['band', 'stop'] and (normal_cutoff[0] >= 1 or normal_cutoff[1] >= 1)) or (btype not in ['band', 'stop'] and normal_cutoff >= 1):
+                raise ValueError("Cutoff frequency must be less than the Nyquist frequency.")
 
-        if filter_type == 'butterworth':
-            b, a = butter(order, normal_cutoff, btype=btype, analog=False)
-        elif filter_type == 'cheby1':
-            b, a = cheby1(order, 0.5, normal_cutoff, btype=btype, analog=False)
-        elif filter_type == 'cheby2':
-            b, a = cheby2(order, 20, normal_cutoff, btype=btype, analog=False)
-        elif filter_type == 'elliptic':
-            b, a = ellip(order, 0.5, 20, normal_cutoff, btype=btype, analog=False)
-        elif filter_type == 'bessel':
-            b, a = bessel(order, normal_cutoff, btype=btype, analog=False, norm='phase')
-        else:
-            raise ValueError(f"Unsupported filter type: {filter_type}")
+        def get_filter_params():
+            if filter_type == 'butterworth':
+                return butter(order, normal_cutoff, btype=btype, analog=False)
+            elif filter_type == 'cheby1':
+                return cheby1(order, 0.5, normal_cutoff, btype=btype, analog=False)
+            elif filter_type == 'cheby2':
+                return cheby2(order, 20, normal_cutoff, btype=btype, analog=False)
+            elif filter_type == 'elliptic':
+                return ellip(order, 0.5, 20, normal_cutoff, btype=btype, analog=False)
+            elif filter_type == 'bessel':
+                return bessel(order, normal_cutoff, btype=btype, analog=False, norm='phase')
+            elif filter_type == 'savitzky_golay':
+                return kwargs.get('window_length', 51), kwargs.get('polyorder', 3)
+            elif filter_type == 'median':
+                return kwargs.get('kernel_size', 11)
+            else:
+                raise ValueError(f"Unsupported filter type: {filter_type}")
+
+        def apply_filter_to_data(data):
+            if filter_type in ['butterworth', 'cheby1', 'cheby2', 'elliptic', 'bessel']:
+                return filtfilt(b, a, data)
+            elif filter_type == 'savitzky_golay':
+                return savgol_filter(data, window_length=window_length, polyorder=polyorder)
+            elif filter_type == 'median':
+                return medfilt(data, kernel_size=kernel_size)
+
+        validate_cutoff()
+        normal_cutoff = normalize_cutoff()
+        check_nyquist(normal_cutoff)
+        filter_params = get_filter_params()
+
+        if filter_type in ['butterworth', 'cheby1', 'cheby2', 'elliptic', 'bessel']:
+            b, a = filter_params
+        elif filter_type == 'savitzky_golay':
+            window_length, polyorder = filter_params
+        elif filter_type == 'median':
+            kernel_size = filter_params
 
         filter_base = copy.deepcopy(self.base)
         for zone, instant in self.base.items():
             for variable_name, variable_obj in self.base[zone][instant].items():
                 if variable_name not in invariant_variables:
-                    filter_base[zone][instant].add_variable(variable_name,
-                                                        filtfilt(b, a,
-                                                                variable_obj)
-                                                        )
+                    filtered_data = apply_filter_to_data(variable_obj)
+                    filter_base[zone][instant].add_variable(variable_name, filtered_data)
+
         return filter_base
 
     def reduce(self, factor = 2):

@@ -10,6 +10,7 @@ __github_url__='https://github.com/TSaouchi/Orion'
 # Default variables
 DEFAULT_NAME = 'Orion'
 DEFAULT_VERBOSE = True
+DEFAULT_DEBUG = False
 DEFAULT_SIMULATION_TYPE = '1D'
 DEFAULT_ZONE_NAME = ['Zone']
 DEFAULT_INSTANT_NAME = ['Instant']
@@ -117,6 +118,7 @@ __all__ = [
     'DEFAULT_ZONE_NAME',
     'DEFAULT_INSTANT_NAME',
     'DEFAULT_VERBOSE',
+    'DEFAULT_DEBUG,'
     'DEFAULT_VAR_SYNONYMS',
     'DEFAULT_TIME_NAME',
     'DEFAULT_TIMESTEP_NAME',

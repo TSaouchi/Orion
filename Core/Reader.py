@@ -25,6 +25,7 @@ from SharedMethods import SharedMethods
 # Message mode
 import warnings
 Verbose = Orion.DEFAULT_VERBOSE
+Debug = Orion.DEFAULT_DEBUG
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 os.environ['VTK_SILENCE_GET_VOID_POINTER_WARNINGS'] = '1'
@@ -204,7 +205,7 @@ class Reader(SharedMethods):
         df = pd.read_csv(io.StringIO(data_content), sep=delimiter,
                          names=clean_columns, usecols=variables,
                          skipinitialspace=True)
-        if verbose:
+        if Debug:
             if header_info:
                 print("Header Information:")
                 for line in header_info:
