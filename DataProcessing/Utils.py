@@ -53,7 +53,7 @@ def get_unique_pairs(x, y, decimal_places=2):
 
     return unique_x, unique_y
 
-def find_closest_points(x, y, target_value=1, n_return_points=5):
+def get_closest_points(x, y, target_value=1, n_return_points=5):
     """
     Find the n points where the y values are closest to a specified target value, and return the corresponding x and y values.
 
@@ -83,11 +83,11 @@ def find_closest_points(x, y, target_value=1, n_return_points=5):
         unique_x, unique_y = get_unique_pairs(x, y)
         
         # Find the 3 closest points to the target value 1
-        x_closest, y_closest = find_closest_points(unique_x, unique_y, target_value=1, n=3)
+        x_closest, y_closest = get_closest_points(unique_x, unique_y, target_value=1, n=3)
 
     Example Usage
     -------------
-    >>> x_closest, y_closest = find_closest_points(unique_x, unique_y, target_value=1, n=5)
+    >>> x_closest, y_closest = get_closest_points(unique_x, unique_y, target_value=1, n=5)
     >>> print(x_closest, y_closest)
     """
     # Ensure n_return_points doesn't exceed the number of available points

@@ -511,7 +511,7 @@ class Processor(SharedMethods):
                     use_lower = variable_obj.min()
                     use_upper = variable_obj.max()
                 if type == 'max':
-                    use_lower = 0
+                    use_lower = da.array(0)
                     use_upper = variable_obj.max()
                 
                 if use_lower != use_upper:
