@@ -15,7 +15,7 @@ class Plot(SharedMethods):
     """
     A class for grouping plotting methods.
     """
-    def __init__(self, path, dir_name_tag = "output", 
+    def __init__(self, path, dir_name_tag = "output",
                  files_name_tag = "output_result", format = 'html'):
         """
         Initialize the Plot class with path, directory name, and file name tags.
@@ -54,12 +54,12 @@ class Plot(SharedMethods):
         Notes
         -----
         - `plot_dictionary` should have the following structure:
-        
+
         Example
         -------
-        
+
         .. code-block:: python
-        
+
             plot_dictionary = {
                 'Coordinate X': {
                     'values': [x_values_1, x_values_2],
@@ -75,11 +75,11 @@ class Plot(SharedMethods):
                     'values': [y_values_1, y_values_2],
                 }
             }
-        
+
         Example Usage
         -------------
         >>> plot.cartesian_plot_to_html(plot_dictionary)
-        # If one need to plot 2 left plots and one right plot use 
+        # If one need to plot 2 left plots and one right plot use
         >>> plot_dictionary = {
             'Time (s) - Shifted to start at zero' : {
                 'values' : [base[0][0][0].data, base[0][0][0].data],
@@ -119,31 +119,31 @@ class Plot(SharedMethods):
         else:
             from plotly.subplots import make_subplots
             fig = make_subplots(specs=[[{"secondary_y": False}]])
-            
+
         #:Plotting for 2D
         if z_axis_title is None:
             self.__2D_plot(go, fig, x_axis_title, y_axis_title, x_axis, y_axis)
-        
+
         #:Plotting for 2D with secondary y
         elif z_axis_title is not None and x_axis.get('secondary_y', None) is not None:
             self.__2D_plot(go, fig, x_axis_title, y_axis_title, x_axis, y_axis)
-            
+
             secondary_y = True
             z_axis = plot_dictionary[z_axis_title]
-            self.__2D_plot(go, fig, x_axis_title, z_axis_title, x_axis, z_axis, 
+            self.__2D_plot(go, fig, x_axis_title, z_axis_title, x_axis, z_axis,
                            secondary_y = secondary_y)
             fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title)
-            fig.update_yaxes(title_text=z_axis_title, 
+            fig.update_yaxes(title_text=z_axis_title,
                              secondary_y = secondary_y)
-            
+
         #:Plotting for 3D
         else:
             z_axis = plot_dictionary[z_axis_title]
-            self.__3D_plot(go, fig, x_axis_title, y_axis_title, z_axis_title, 
+            self.__3D_plot(go, fig, x_axis_title, y_axis_title, z_axis_title,
                            x_axis, y_axis, z_axis)
-                 
+
         export_path = self.export_path_check()
         output_path = os.path.join(export_path, self.files_name_tag)
         self.print_text("check", f"\n\tPlot produced in : {output_path}.{self.format}")
@@ -193,38 +193,38 @@ class Plot(SharedMethods):
                             color=color,
                             width = x_axis['sizes'][n] if 'sizes' in x_axis else 2)
                     ))
-            
+
         if 'scale' in x_axis.keys():
             if x_axis["scale"] in "loglog":
                 fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
                     zaxis_title = z_axis_title,
-                    xaxis=dict(type="log", exponentformat="e"),  
-                    yaxis=dict(type="log", exponentformat="e"),  
-                    zaxis=dict(type="log", exponentformat="e")  
+                    xaxis=dict(type="log", exponentformat="e"),
+                    yaxis=dict(type="log", exponentformat="e"),
+                    zaxis=dict(type="log", exponentformat="e")
                 )
             elif x_axis["scale"] in "logx":
                 fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
                     zaxis_title = z_axis_title,
-                    xaxis=dict(type="log", exponentformat="e"),  
+                    xaxis=dict(type="log", exponentformat="e"),
                 )
             elif x_axis["scale"] in "logy":
                 fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
                     zaxis_title = z_axis_title,
-                    yaxis=dict(type="log", exponentformat="e")  
-                )                
+                    yaxis=dict(type="log", exponentformat="e")
+                )
             elif x_axis["scale"] in "logz":
                 fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
                     zaxis_title = z_axis_title,
-                    zaxis=dict(type="log", exponentformat="e")  
-                )                
+                    zaxis=dict(type="log", exponentformat="e")
+                )
         else:
             fig.update_layout(
                 scene = dict(
@@ -233,7 +233,7 @@ class Plot(SharedMethods):
                     zaxis_title = z_axis_title
                     )
                 )
-            
+
         if "xlim" in x_axis.keys():
              fig.update_xaxes(range = x_axis["xlim"])
         if "ylim" in x_axis.keys():
@@ -241,7 +241,7 @@ class Plot(SharedMethods):
         if "zlim" in x_axis.keys():
              fig.update_zaxes(range = x_axis["zlim"])
 
-    def __2D_plot(self, go, fig, x_axis_title, y_axis_title, x_axis, y_axis, 
+    def __2D_plot(self, go, fig, x_axis_title, y_axis_title, x_axis, y_axis,
                   secondary_y = False):
         colors = self.__generate_distinct_colors(len(x_axis['values']))
         for n, (x, y) in enumerate(zip(x_axis['values'], y_axis['values'])):
@@ -290,40 +290,40 @@ class Plot(SharedMethods):
                         ),
                         secondary_y = secondary_y
                               )
-            
+
         if 'scale' in x_axis.keys():
             if x_axis["scale"] == "loglog":
                 fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
-                    xaxis=dict(type="log", exponentformat="e"),  
-                    yaxis=dict(type="log", exponentformat="e")  
+                    xaxis=dict(type="log", exponentformat="e"),
+                    yaxis=dict(type="log", exponentformat="e")
                 )
             elif x_axis["scale"] == "logx":
                 fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
-                    xaxis=dict(type="log", exponentformat="e"),  
+                    xaxis=dict(type="log", exponentformat="e"),
                 )
             elif x_axis["scale"] == "logy":
                 fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title,
-                    yaxis=dict(type="log", exponentformat="e")  
-                )                
+                    yaxis=dict(type="log", exponentformat="e")
+                )
         else:
             fig.update_layout(
                     xaxis_title = x_axis_title,
                     yaxis_title = y_axis_title
                     )
-            
+
         if "xlim" in x_axis.keys():
              fig.update_xaxes(range = x_axis["xlim"])
         if "ylim" in x_axis.keys():
              fig.update_yaxes(range = x_axis["ylim"])
-             
+
     def __generate_distinct_colors(self, n, palette='pastel'):
-    
+
         golden_ratio = (1 + 5 ** 0.5) / 2
         golden_angle = 2 * math.pi / (golden_ratio ** 2)
 
@@ -351,7 +351,7 @@ class Plot(SharedMethods):
             ))
 
         return colors
-        
+
     def polar_plot(self, plot_dictionary, auto_open = False):
         """
         Plot scatter points using Plotly in polar coordinates.
@@ -367,9 +367,9 @@ class Plot(SharedMethods):
 
         Example
         -------
-        
+
         .. code-block:: python
-            
+
             plot_dictionary = {
                 'Coordinate Radius': {
                     'values': [r_values_1, r_values_2],
@@ -405,7 +405,7 @@ class Plot(SharedMethods):
 
         # Plotting
         self.__polar_plot(go, fig, r_axis, theta_axis)
-        
+
         export_path = self.export_path_check()
         output_path = os.path.join(export_path, self.files_name_tag)
         self.print_text("check", f"\n\tPlot produced in : {output_path}.{self.format}")
@@ -440,3 +440,14 @@ class Plot(SharedMethods):
                         size=r_axis['sizes'][n] if 'sizes' in r_axis else 10)
                 ))
 
+        if "rlim" in r_axis.keys():
+            fig.update_layout(
+                polar = dict(
+                    radialaxis = dict(
+                        range = r_axis["rlim"]
+                        )
+                    )
+                )
+        if "thetalim" in r_axis.keys():
+            fig.update_polars(sector = r_axis["thetalim"])
+            
