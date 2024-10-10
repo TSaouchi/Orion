@@ -421,7 +421,7 @@ class Processor(SharedMethods):
         invariant_variables = kwargs.get("invariant_variables", 
                                          Orion.DEFAULT_TIME_NAME + 
                                          Orion.DEFAULT_FREQUENCY_NAME)
-        filter_type = kwargs.get('filter_type', 'butterworth')
+        filter_type = kwargs.get('filter_type', 'median')
         cutoff = kwargs.get('cutoff', None)
         sampling_rate = kwargs.get('sampling_rate', 1e3)
         order = kwargs.get('order', 5)
