@@ -322,36 +322,6 @@ class Plot(SharedMethods):
         if "ylim" in x_axis.keys():
              fig.update_yaxes(range = x_axis["ylim"])
 
-    def __generate_distinct_colors(self, n, palette='pastel'):
-
-        golden_ratio = (1 + 5 ** 0.5) / 2
-        golden_angle = 2 * math.pi / (golden_ratio ** 2)
-
-        colors = []
-        for i in range(n):
-            hue = (i * golden_angle) % 1
-            saturation = 0.7 + (i % 3) * 0.1  # Vary saturation slightly
-            value = 0.8 + (i % 2) * 0.2  # Vary brightness slightly
-
-            # Adjust the hue and saturation based on the palette
-            if palette == 'hsv':
-                rgb = colorsys.hsv_to_rgb(hue, saturation, value)
-            elif palette == 'warm':
-                rgb = colorsys.hsv_to_rgb(hue * 0.5, saturation, value)  # Warmer tones
-            elif palette == 'cool':
-                rgb = colorsys.hsv_to_rgb(0.5 + hue * 0.5, saturation, value)  # Cooler tones
-            elif palette == 'pastel':
-                rgb = colorsys.hsv_to_rgb(hue, 0.3 + saturation * 0.2, 0.9)  # Softer, pastel tones
-            else:
-                raise ValueError("Invalid palette choice. Available palettes: 'hsv', 'warm', 'cool', 'pastel'")
-
-            # Convert RGB values to hex format
-            colors.append('#{:02x}{:02x}{:02x}'.format(
-                int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255)
-            ))
-
-        return colors
-
     def polar_plot(self, plot_dictionary, auto_open = False):
         """
         Plot scatter points using Plotly in polar coordinates.
@@ -450,4 +420,33 @@ class Plot(SharedMethods):
                 )
         if "thetalim" in r_axis.keys():
             fig.update_polars(sector = r_axis["thetalim"])
-            
+    
+    def __generate_distinct_colors(self, n, palette='pastel'):
+
+        golden_ratio = (1 + 5 ** 0.5) / 2
+        golden_angle = 2 * math.pi / (golden_ratio ** 2)
+
+        colors = []
+        for i in range(n):
+            hue = (i * golden_angle) % 1
+            saturation = 0.7 + (i % 3) * 0.1  # Vary saturation slightly
+            value = 0.8 + (i % 2) * 0.2  # Vary brightness slightly
+
+            # Adjust the hue and saturation based on the palette
+            if palette == 'hsv':
+                rgb = colorsys.hsv_to_rgb(hue, saturation, value)
+            elif palette == 'warm':
+                rgb = colorsys.hsv_to_rgb(hue * 0.5, saturation, value)  # Warmer tones
+            elif palette == 'cool':
+                rgb = colorsys.hsv_to_rgb(0.5 + hue * 0.5, saturation, value)  # Cooler tones
+            elif palette == 'pastel':
+                rgb = colorsys.hsv_to_rgb(hue, 0.3 + saturation * 0.2, 0.9)  # Softer, pastel tones
+            else:
+                raise ValueError("Invalid palette choice. Available palettes: 'hsv', 'warm', 'cool', 'pastel'")
+
+            # Convert RGB values to hex format
+            colors.append('#{:02x}{:02x}{:02x}'.format(
+                int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255)
+            ))
+
+        return colors

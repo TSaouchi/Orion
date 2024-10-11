@@ -138,14 +138,12 @@ from .ScriptParser import *
 from .Formulas import *
 from .SharedMethods import *
 
-# Calculate the width of the header
-header_width = 80
-
-# Center the title within the header width
-project_title = f"{__title__} Project"
-centered_title = project_title.center(header_width)
 
 # Header to print when the package is imported
+import multiprocessing
+
+header_width = 80  # Adjust as needed
+centered_title = f"Project {__title__}".center(header_width)
 header = f"""
 {'=' * header_width}
 {centered_title}
@@ -154,4 +152,10 @@ Author: {__author__}
 Version: {__version__}
 {'=' * header_width}
 """
-print(header)
+
+def print_header_once():
+    if multiprocessing.current_process().name == 'MainProcess':
+        print(header)
+
+# Call this function at the beginning of your script
+print_header_once()

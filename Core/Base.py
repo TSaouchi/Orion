@@ -1,9 +1,12 @@
 import numpy as np
-import re
 import dask.array as da
-from typing import Union, Generator, Dict, List, Any, Tuple
-from concurrent.futures import ThreadPoolExecutor
+import re
 from collections import OrderedDict, defaultdict
+
+# For base computation level
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 
 # Orion parameters
 from Core import DEFAULT_ZONE_NAME, DEFAULT_INSTANT_NAME, DEFAULT_VERBOSE
@@ -106,7 +109,7 @@ class Variables(CustomAttributes):
         super().__init__()
         self.data = da.array(data)
 
-    def __getitem__(self, key: Any):
+    def __getitem__(self, key):
         """
         Retrieve data by key.
 
@@ -696,23 +699,46 @@ class Base(CustomAttributes):
         """
         return self.zones.keys()
     
-    def compute(self, expression, verbose=DEFAULT_VERBOSE):
+    def compute(self, expression, verbose=DEFAULT_VERBOSE, chunk_size=200):
         """
-        Compute a new variable based on the given expression and apply it across all zones and instants.
+        Compute a new variable for all instants based on the provided expression.
+
+        The expression should be of the form 'new_variable = operation', where the 
+        operation is a mathematical expression involving existing variables. This 
+        method updates the instants in the Base object with the computed values.
 
         Parameters
         ----------
         expression : str
-            The expression to compute. For example, "variable3 = variable1 * variable2" or "Time = 5 + Time".
+            A mathematical expression of the form 'new_variable = operation'. The 
+            new variable will be computed for all instants.
         verbose : bool, optional
-            If True, display progress bar. Default is False.
+            If True, print progress information (default is DEFAULT_VERBOSE).
+        chunk_size : int, optional
+            The number of instants to process per chunk in multiprocessing mode. 
+            Set to None to disable chunking. Default is 200.
 
-        Example
+        Returns
         -------
-        >>> base.compute('variable3 = variable1 * variable2', verbose=True)
-        >>> base.compute('Time = 5 + Time')
+        None
+
+        Notes
+        -----
+        This method supports both multiprocessing and multithreading to parallelize 
+        the computation over multiple instants. When the number of chunks is greater 
+        than the chunk size, multiprocessing is used; otherwise, multithreading is 
+        employed.
+
+        The results of the computation are stored in the Base object by updating the 
+        corresponding variables for each instant. If a variable does not exist, it 
+        will be created.
+
+        Examples
+        --------
+        >>> base.compute('new_var = var1 + var2', verbose=True)
         """
         if verbose: self.print_text("info", "\nComputing")
+        
         var_name, operation = expression.split('=', 1)
         var_name = var_name.strip()
         operation = operation.strip()
@@ -723,33 +749,70 @@ class Base(CustomAttributes):
                 variables_in_expression.update(instant.variables.keys())
 
         variables_used = set(var for var in variables_in_expression 
-                             if bool(re.search(rf'\b{re.escape(var)}\b', operation)))
+                            if bool(re.search(rf'\b{re.escape(var)}\b', operation)))
 
-        def evaluate_and_add_variable(instant, var_name, operation, variables_used):
-            local_namespace = {var: instant.variables[var].data for var in variables_used if var in instant.variables}
-            
-            try:
-                result = eval(operation, globals(), local_namespace)
-                if var_name in instant.variables:
-                    instant.variables[var_name].data = da.array(result)
-                else:
-                    instant.add_variable(var_name, result)
-            except Exception as e:
-                print(f"Error evaluating expression '{operation}' in instant: {e}")
+        all_instants = [
+            (zone_id, instant_id, {var: instant.variables[var].data for var in instant.variables})
+            for zone_id, zone in self.zones.items()
+            for instant_id, instant in zone.instants.items()
+        ]
+        
+        if chunk_size is None: 
+            chunk_size = 0
+        else:
+            chunks = [all_instants[i:i + chunk_size] for i in range(0, len(all_instants), chunk_size)]
+        
+        # Use multiprocessing
+        if len(chunks) >= 10:
+            print("Multiprocess computation")
+            cpu_count = multiprocessing.cpu_count()
+            with ProcessPoolExecutor(max_workers=cpu_count) as executor:
+                futures = [executor.submit(self.process_chunk, chunk, var_name, operation, variables_used) for chunk in chunks]
 
-        with ThreadPoolExecutor() as executor:
-            futures = []
-            for zone in self.zones.values():
-                for instant in zone.instants.values():
-                    if not variables_used or all(var in instant.variables for var in variables_used):
-                        future = executor.submit(evaluate_and_add_variable,
-                                                 instant, var_name, operation, variables_used)
-                        futures.append(future)
+                all_results = []
+                total = len(futures)
+                with self.tqdm_wrapper(total, desc="Progress", verbose=verbose) as pbar:
+                    for future in as_completed(futures):
+                        all_results.extend(future.result())
+                        pbar.update()
 
-            # Wait for all computations to finish
-            for future in self.tqdm_wrapper(futures, desc="Zones    ", 
-                                       verbose=verbose):
-                future.result()
+            # Update the Base object with the computed results
+            for zone_id, instant_id, var_name, result in all_results:
+                if result is not None:
+                    instant = self.zones[zone_id].instants[instant_id]
+                    if var_name in instant.variables:
+                        instant.variables[var_name].data = result
+                    else:
+                        instant.add_variable(var_name, result)
+        
+        # Use MultiThreading
+        else:
+            print("Multithread computation")
+            def evaluate_add_multithread(instant, var_name, operation, variables_used):
+                local_namespace = {var: instant.variables[var].data for var in variables_used if var in instant.variables}
+                
+                try:
+                    result = eval(operation, globals(), local_namespace)
+                    if var_name in instant.variables:
+                        instant.variables[var_name].data = da.array(result)
+                    else:
+                        instant.add_variable(var_name, result)
+                except Exception as e:
+                    print(f"Error evaluating expression '{operation}' in instant: {e}")
+
+            with ThreadPoolExecutor() as executor:
+                all_results = []
+                for zone in self.zones.values():
+                    for instant in zone.instants.values():
+                        if not variables_used or all(var in instant.variables for var in variables_used):
+                            future = executor.submit(evaluate_add_multithread,
+                                                    instant, var_name, operation, variables_used)
+                            all_results.append(future)
+
+                # Wait for all computations to finish
+                for future in self.tqdm_wrapper(all_results, desc="Zones    ", 
+                                        verbose=verbose):
+                    future.result()
 
     def show(self, stats = False):
         """
@@ -782,6 +845,97 @@ class Base(CustomAttributes):
                             f"{np.round(data.mean().compute(), 2)}, " + \
                             f"{np.round(data.max().compute(), 2)})"
                     self.print_text("blue", msg)
+    
+    @staticmethod
+    def evaluate_multiprocess(instant_data, operation, variables_used):
+        """
+        Evaluate a mathematical expression in a multiprocessing context for a single instant.
+
+        Parameters
+        ----------
+        instant_data : dict
+            A dictionary containing variable data for a given instant. Keys are variable 
+            names, and values are the corresponding data arrays.
+        operation : str
+            A mathematical expression to evaluate. The expression can include variables 
+            present in the `instant_data` dictionary.
+        variables_used : set
+            A set of variable names that are used in the expression.
+
+        Returns
+        -------
+        dask.array.Array or None
+            The result of the evaluated expression as a Dask array. Returns None if 
+            an error occurs during evaluation.
+
+        Notes
+        -----
+        This method uses the `eval` function to dynamically evaluate the mathematical 
+        expression within a local namespace constructed from the variables present 
+        in `instant_data`. If an error occurs during evaluation, the method catches 
+        the exception and prints an error message.
+
+        Example
+        -------
+        >>> result = Base.evaluate_multiprocess(instant_data, 'var1 + var2', {'var1', 'var2'})
+        >>> if result is not None:
+        >>>     print("Computation succeeded")
+        """
+        local_namespace = {var: instant_data[var] for var in variables_used if var in instant_data}
+        
+        try:
+            result = eval(operation, globals(), local_namespace)
+            return da.array(result)
+        except Exception as e:
+            print(f"Error evaluating expression '{operation}' in instant: {e}")
+            return None
+
+    @staticmethod
+    def process_chunk(chunk, var_name, operation, variables_used):
+        """
+        Process a chunk of instants by evaluating a mathematical expression for each instant.
+
+        Parameters
+        ----------
+        chunk : list of tuples
+            A list of tuples, where each tuple contains:
+            - zone_id: The ID of the zone.
+            - instant_id: The ID of the instant.
+            - instant_data: A dictionary of variable data for the instant.
+        var_name : str
+            The name of the variable to store the result of the evaluated expression.
+        operation : str
+            A mathematical expression to evaluate.
+        variables_used : set
+            A set of variable names that are used in the expression.
+
+        Returns
+        -------
+        list of tuples
+            A list of tuples, where each tuple contains:
+            - zone_id: The ID of the zone.
+            - instant_id: The ID of the instant.
+            - var_name: The name of the variable to be updated.
+            - result: The computed result as a Dask array or None if an error occurred.
+
+        Notes
+        -----
+        This method iterates over all instants in the chunk, evaluates the expression 
+        for each instant using `evaluate_multiprocess`, and returns the results.
+
+        Example
+        -------
+        >>> chunk = [(zone_id1, instant_id1, instant_data1), (zone_id2, instant_id2, instant_data2)]
+        >>> results = Base.process_chunk(chunk, 'new_var', 'var1 + var2', {'var1', 'var2'})
+        >>> for zone_id, instant_id, var_name, result in results:
+        >>>     print(f"Zone {zone_id}, Instant {instant_id}: {var_name} = {result}")
+        """
+        results = []
+        for zone_id, instant_id, instant_data in chunk:
+            if not variables_used or all(var in instant_data for var in variables_used):
+                result = Base.evaluate_multiprocess(instant_data, operation, variables_used)
+                results.append((zone_id, instant_id, var_name, result))
+        return results
 
 if __name__ == "__main__":
     import time

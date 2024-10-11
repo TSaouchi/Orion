@@ -130,6 +130,28 @@ class TestBase(unittest.TestCase):
         self.base.compute("variable3 = variable1 * variable2")
         expected = np.array([1*4, 2*5, 3*6])
         np.testing.assert_array_equal(self.base["Zone1"]["Instant1"]["variable3"].data, expected)
+    
+    def test_compute_Variable_in_itself(self):
+        self.base["Zone1"]["Instant1"].add_variable("variable1", [1, 2, 3])
+        self.base["Zone1"]["Instant1"].add_variable("variable2", [4, 5, 6])
+        self.base.compute("variable1 = variable1 * variable1")
+        expected = np.array([1*1, 2*2, 3*3])
+        np.testing.assert_array_equal(self.base["Zone1"]["Instant1"]["variable1"].data, expected)
+    
+    def test_compute_instant_variable(self):
+        self.base["Zone1"]["Instant1"].add_variable("variable1", [1, 2, 3])
+        self.base["Zone1"]["Instant1"].add_variable("variable2", [4, 5, 6])
+        self.base["Zone1"]["Instant2"].add_variable("variable2", [4, 5, 6])
+        
+        self.base["Zone2"]["Instant1"].add_variable("variable2", [4, 5, 6])
+        self.base["Zone2"]["Instant2"].add_variable("variable2", [4, 5, 6])
+        
+        self.base.compute("variable3 = variable1 * variable1")
+        expected = np.array([1*1, 2*2, 3*3])
+        np.testing.assert_array_equal(self.base["Zone1"]["Instant1"]["variable3"].data, expected)
+        self.assertIsNot("variable3", self.base["Zone1"]["Instant2"].keys())
+        self.assertIsNot("variable3", self.base["Zone2"]["Instant1"].keys())
+        self.assertIsNot("variable3", self.base["Zone2"]["Instant2"].keys())
 
     def test_compute_no_variable(self):
         self.base["Zone1"]["Instant1"].add_variable("variable1", [1, 2, 3])
@@ -148,7 +170,6 @@ class TestBase(unittest.TestCase):
         
         self.base.show(stats=True)
         
-    
     def test_compute_across_zones_and_instants(self):
         self.base['Zone1']['Instant1'].add_variable('var1', [[1, 2, 3], [4, 5, 6]])
         self.base['Zone2']['Instant1'].add_variable('var1', [[7, 8, 9], [10, 11, 12]])

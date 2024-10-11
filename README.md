@@ -25,7 +25,7 @@ This repository provides a Python-based API for post-processing large-scale data
 - **Organized Data Structure**: Manage multi-dimensional data across zones (e.g., physical regions), instants (e.g., time steps), and variables (e.g., physical quantities like velocity or pressure).
 - **Efficient Data Handling**: Relies on [HDF5](https://docs.alliancecan.ca/wiki/HDF5/fr) for efficient storage and access to multi-dimensional data, ensuring high performance and flexibility.
 - **Efficient Computation**: Uses [Dask](https://www.dask.org/) arrays to handle large datasets lazily, triggering computation only when needed.
-- **Parallelization**: Perform computations across zones and instants using **ThreadPoolExecutor** for multi-threaded processing.
+- **Parallelization**: Perform computations across zones and instants using multi-threaded\multi-processing computation.
 - **Custom Metadata**: Attach custom attributes (metadata) to zones, instants, or variables for easy categorization and filtering.
 - **Expression-Based Computation**: Dynamically compute new variables using literal expressions (e.g., `"new_var = var1 * var2"`).
 
