@@ -208,7 +208,74 @@ class TestBaseInit(unittest.TestCase):
         self.assertEqual(len(self.base[1].keys()), 1)
         self.assertEqual(list(self.base.keys())[1], "Zone2") 
         self.assertEqual(list(self.base[1].keys())[0], "Instant2")
-        
+    
+    def test_init_zone_instant(self):
+        zones = [f"zone_{_}" for _ in range(2)]
+        instants = [f"instant_{_}" for _ in range(2)]
+        self.base.init(zones, instants)
+        self.assertEqual(list(self.base.keys()), zones)
+        for zone in zones:
+            self.assertEqual(list(self.base[zone].keys()), instants)
 
+    def test_init_zone_instant_variables(self):
+        zones = [f"zone_{_}" for _ in range(2)]
+        instants = [f"instant_{_}" for _ in range(2)]
+        variables_name = [f"variable_{_}" for _ in range(2)]
+        variables_values = 2*[[i for i in np.arange(5)]]
+        self.base.init(zones, instants, variables_name, variables_values)
+        self.assertEqual(list(self.base.keys()), zones)
+        for zone in zones:
+            self.assertEqual(list(self.base[zone].keys()), instants)
+            for instant in instants:
+                self.assertEqual(list(self.base[zone][instant].keys()), variables_name)
+    
+    def test_add_zone_instant_variables(self):
+        # Add after init base
+        self.setUp()
+        zones = [f"zone_{_}" for _ in range(2)]
+        instants = [f"instant_{_}" for _ in range(2)]
+        variables_names = [f"variable_{_}" for _ in range(2)]
+        variables_values = 2*[[i for i in np.arange(5)]]
+        self.base.init(zones, instants, variables_names, variables_values)
+        
+        instantsbis = [f"instantbis_{_}" for _ in range(2)]
+        variables_namesbis = [f"variablebis_{_}" for _ in range(2)]
+        variables_valuesbis = 2*[[i for i in np.arange(5)]]
+        self.base.add(zones, instantsbis, variables_namesbis, variables_valuesbis)
+
+        self.assertEqual(list(self.base.keys()), zones)
+        for zone in zones:
+            self.assertEqual(list(self.base[zone].keys()), instants + instantsbis)
+            for instant in instants:
+                self.assertEqual(list(self.base[zone][instant].keys()), variables_names)
+            for instant in instantsbis:
+                self.assertEqual(list(self.base[zone][instant].keys()), variables_namesbis)
+
+        # Add after init and add different zones, instants and variables
+        self.setUp()
+        zones = [f"zone_{_}" for _ in range(2)]
+        instants = [f"instant_{_}" for _ in range(2)]
+        variables_names = [f"variable_{_}" for _ in range(2)]
+        variables_values = 2*[[i for i in np.arange(5)]]
+        self.base.init(zones, instants, variables_names, variables_values)
+        
+        zonesbis = [f"zonebis_{_}" for _ in range(2)]
+        instantsbis = [f"instantbis_{_}" for _ in range(2)]
+        variables_namesbis = [f"variablebis_{_}" for _ in range(2)]
+        variables_valuesbis = 2*[[i for i in np.arange(5)]]
+        self.base.add(zonesbis, instantsbis, variables_namesbis, variables_valuesbis)
+
+        self.assertEqual(list(self.base.keys()), zones + zonesbis)
+        for zone in zones:
+            self.assertEqual(list(self.base[zone].keys()), instants)
+            for instant in instants:
+                self.assertEqual(list(self.base[zone][instant].keys()), variables_names)
+        for zone in zonesbis:
+            self.assertEqual(list(self.base[zone].keys()), instantsbis)
+            for instant in instantsbis:
+                self.assertEqual(list(self.base[zone][instant].keys()), variables_namesbis)
+                
+        
+        
 if __name__ == "__main__":
     unittest.main()

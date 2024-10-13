@@ -480,49 +480,171 @@ class Base(CustomAttributes):
         """
         super().__init__()
         self.zones = OrderedDict()
-
-    def init(self, zones = None, instants = None):
+    
+    def init(self, zones = None, instants = None, variables_names = None, 
+                   variables_values = None, verbose = DEFAULT_VERBOSE):
         """
-        Initialize zones and instants. Adds default zones and instants if none are provided.
+        Initialize multiple zones and instants with specified variables.
+
+        This method sets up the provided zones and instants in the internal structure.
+        For each instant in each zone, it initializes the specified variables and
+        populates them with the provided values. The initialization is done in
+        parallel using multithreading for performance optimization.
 
         Parameters
         ----------
         zones : Union[str, List[str]], optional
-            The name or list of names of zones to initialize. Defaults to `DEFAULT_ZONE_NAME`.
+            A list of zone names to initialize. Defaults to `DEFAULT_ZONE_NAME` if not provided.
+            
         instants : Union[str, List[str]], optional
-            The name or list of names of instants to initialize. Defaults to `DEFAULT_INSTANT_NAME`.
+            A list of instant names to initialize within each zone. Defaults to `DEFAULT_INSTANT_NAME`
+            if not provided.
+
+        variables_names : List[str], optional
+            A list of names for the variables to be initialized in each instant.
+            If not provided, no variables will be initialized.
+
+        variables_values : List[any], optional
+            A list of values for each variable. This must match the length of `variables_names`.
+            If not provided, a ValueError will be raised unless both `variables_names` and 
+            `variables_values` are omitted, in which case only zones and instants will be initialized.
+
+        verbose : bool, optional
+            If True, the initialization process will display progress using a progress bar.
+            Defaults to the value of `DEFAULT_VERBOSE`.
+
+        Raises
+        ------
+        ValueError
+            - If `variables_values` is provided but its length does not match `variables_names`.
+            - If `variables_values` is None but `variables_names` is provided.
 
         Example
         -------
-        >>> base.init(['zone1'], ['instant1'])
+        >>> zones = ['zone1', 'zone2']
+        >>> instants = ['instant1', 'instant2']
+        >>> variables_names = ['var1', 'var2']
+        >>> variables_values = [10, 20]  # Static values for the variables
+        >>> base.init(zones=zones, instants=instants, variables_names=variables_names, 
+                    variables_values=variables_values)
         """
-        if zones is None:
+        if (variables_names is None and variables_values is not None) or \
+            (variables_names is not None and variables_values is None):
+                self.print_text("error", "Both variables names and values must be provide")
+                raise ValueError
+        if variables_values is not None and len(variables_values) != len(variables_names):
+            self.print_text("error", "Length of variable_data must match the number of variables")
+            raise ValueError
+
+        if zones is None: 
             zones = DEFAULT_ZONE_NAME
         
-        if instants is None:
+        if instants is None: 
             instants = DEFAULT_INSTANT_NAME
-            
-        for zone in zones:
-            self.add_zone(zone)
-            for instant in instants:
-                self[zone].add_instant(instant)
+              
+        self.zones = {zone: Zones() for zone in zones}
+        def init_instant(zone, instant):
+            self.zones[zone].instants[instant] = Instants()
+            if variables_values is None and variables_names is None: 
+                return
+            for var_name, var_value in zip(variables_names, variables_values):
+                self.zones[zone].instants[instant].variables[var_name] = \
+                    Variables(var_value)
+
+        with ThreadPoolExecutor() as executor:
+            futures = []
+            for zone in self.tqdm_wrapper(zones, desc="Zone", 
+                                       verbose=verbose):
+                for instant in instants:
+                    futures.append(executor.submit(init_instant, zone, instant))
+            # Make sure that all threads did finish the task
+            for future in futures:
+                future.result() 
     
-    def add(self, zones = None, instants = None):
+    def add(self, zones = None, instants = None, variables_names = None, 
+                   variables_values=None, override = False, 
+                   verbose = DEFAULT_VERBOSE):
         """
-        Add zones and instants to the Base object.
+        Add new zones, instants, and variables to the structure.
+
+        This method adds zones and instants to the internal structure. It can also
+        add variables to each instant within the specified zones. If the variables
+        already exist, they will only be overwritten if `override` is set to True.
 
         Parameters
         ----------
-        zones : Union[str, List[str]], optional
-            Names of the zones to add.
-        instants : Union[str, List[str]], optional
-            Names of the instants to add.
+        zones : List[str], optional
+            List of zone names to be added. If None, uses `DEFAULT_ZONE_NAME`.
+
+        instants : List[str], optional
+            List of instant names to be added to each zone. If None, uses `DEFAULT_INSTANT_NAME`.
+
+        variables_names : List[str], optional
+            List of variable names to be added to each instant.
+
+        variables_values : List[any], optional
+            List of values corresponding to the `variables_names`. Must match the 
+            length of `variables_names`. If None, raises a ValueError.
+
+        override : bool, optional
+            If True, existing variables in the specified zones and instants will be 
+            overwritten with new values. Defaults to False.
+
+        verbose : bool, optional
+            If True, displays progress during the addition of zones and instants. 
+            Defaults to `DEFAULT_VERBOSE`.
+
+        Raises
+        ------
+        ValueError
+            If the length of `variables_values` does not match the length of 
+            `variables_names`.
 
         Example
         -------
-        >>> base.add(['zone1'], ['instant1'])
+        >>> zones = ['zone1', 'zone2']
+        >>> instants = ['instant1', 'instant2']
+        >>> variables_names = ['var1', 'var2']
+        >>> variables_values = [100, 200]
+        >>> base.add(zones, instants, variables_names, variables_values, override=True)
         """
-        self.init(zones, instants)
+        if variables_values is not None and len(variables_values) != len(variables_names):
+            raise ValueError("Length of variable_data must match the number of variables")
+
+        if zones is None: 
+            zones = DEFAULT_ZONE_NAME
+        
+        if instants is None: 
+            instants = DEFAULT_INSTANT_NAME
+        
+        def add_to_instant(zone, instant):
+            
+            if zone not in self.zones:
+                self.zones[zone] = Zones()
+            
+            if instant not in self.zones[zone].instants:
+                self.zones[zone].instants[instant] = Instants()
+                
+            if variables_values is None and variables_names is None: 
+                return
+            
+            for var_name, var_value in zip(variables_names, variables_values):
+                if var_name in self.zones[zone].instants[instant] and override:
+                    self.zones[zone].instants[instant].variables[var_name] = \
+                        Variables(var_value)
+                elif var_name not in self.zones[zone].instants[instant]:
+                    self.zones[zone].instants[instant].variables[var_name] = \
+                        Variables(var_value)
+
+        with ThreadPoolExecutor() as executor:
+            futures = []
+            for zone in self.tqdm_wrapper(zones, desc="Zone", 
+                                       verbose=verbose):
+                for instant in instants:
+                    futures.append(executor.submit(add_to_instant, zone, instant))
+                            
+            for futur in futures:
+                futur.result()
 
     def add_zone(self, names):
         """
@@ -699,7 +821,7 @@ class Base(CustomAttributes):
         """
         return self.zones.keys()
     
-    def compute(self, expression, verbose=DEFAULT_VERBOSE, chunk_size=200):
+    def compute(self, expression, verbose=DEFAULT_VERBOSE, chunk_size=100):
         """
         Compute a new variable for all instants based on the provided expression.
 

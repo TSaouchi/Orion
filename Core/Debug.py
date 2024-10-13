@@ -195,7 +195,7 @@ class PerformanceStats(SharedMethods):
         }
 
     def print_stats(self):
-        self.print_text("info", "Performance Statistics:")
+        self.print_text("info", "\nPerformance Statistics:")
         print(f"Execution time: {self.stats['execution_time']:.2f} seconds")
         print(f"CPU Usage: {self.stats['cpu_usage_percent']:.2f}%")
         print(f"Memory Usage: {self.stats['memory_usage']:.2f} MB")
