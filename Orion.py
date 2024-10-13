@@ -58,38 +58,18 @@ if __name__ == "__main__":
     import dask.array as da
     base = Orion.Base()
     
-    
-    
-    nzone = 5
-    ninstant = 5
-    nvar = 10
-    n = 1
+    nzone = 500
+    ninstant = 5000
+    nvar = 100
+    n = 1e8
     zones = [f"Zone_{i}" for i in range(nzone)]
     instants = [f"Instant_{i}" for i in range(ninstant)]
     var1 = [f"var_{i}" for i in range(0, nvar)]
-    var1_value = nvar*[da.random.random((n, 1), chunks = 'auto')]
-    var1_value = nvar*[da.random.random((n, 1), chunks = 'auto')]
-        
-    
-    base.init(zones, instants, var1, var1_value)
-    
-    base.init(zones, instants)
-    
-    var2 = [f"var_{i}" for i in range(20, 30)]
-    var3 = [f"var_{i}" for i in range(40, 50)]
-    
-    for zone in zones:
-        for instant in instants:
-            for var in var1:
-                base[zone][instant].add_variable(var, da.random.random((n, 1), chunks = 'auto'))
-    for zone in zones[::2]:
-        for instant in instants:
-            for var in var2:
-                base[zone][instant].add_variable(var, da.random.random((n, 1), chunks = 'auto'))
-    for zone in zones:
-        for instant in instants[::2]:
-            for var in var3:
-                base[zone][instant].add_variable(var, da.random.random((n, 1), chunks = 'auto'))
+    var1_value = nvar*[da.random.random((n, 1), chunks = 'auto')]    
     
     with PerformanceStats() as stats:
-        base.compute('var2 =  2')#, chunk_size=10000000)
+        base.init(zones, instants, var1, var1_value)
+
+    with PerformanceStats() as stats:
+        base.compute('var2 =  2')
+
