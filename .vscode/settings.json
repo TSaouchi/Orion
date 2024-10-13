@@ -1,18 +1,17 @@
 {
     //Python interprete
-    "python.defaultInterpreterPath": "${env:USERPROFILE}\\AppData\\Local\\Program\\Python\\Python312\\python.exe",
+    "python.defaultInterpreterPath": "${env:USERPROFILE}\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
     //Run a python script in a vscode powershell terminal
     "terminal.integrated.env.windows": {
-        "PYTHONPATH": "${workspaceFolder}/Core;${workspaceFolder}/DataProcessing;${workspaceFolder}/SystemSimulation",
-        "PATH": "${env:PATH};../toto/toto/toto"
+        "PYTHONPATH": "${workspaceFolder}/Core;${workspaceFolder}/DataProcessing",
+        "PATH": "${env:PATH}"
     },
     //(Optional) Run a python script interactively on a notebook (Jupyter) 
     "python.envFile": "${workspaceFolder}/.vscode/.env",
     //Useful for debugging and auto-completion
     "python.analysis.extraPaths": [
         "./Core",
-        "./DataProcessing",
-        "./SystemSimulation"
+        "./DataProcessing"
     ],
     "python.testing.unittestArgs": [
         "-v",

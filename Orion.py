@@ -1,8 +1,8 @@
-### Path and Char manipulation
+# Path and Char manipulation
 import os
 import time
 
-### Math
+# Math
 import numpy as np
 import copy
 import scipy as spy
