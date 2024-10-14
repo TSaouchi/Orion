@@ -163,7 +163,7 @@ class PerformanceStats(SharedMethods):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._collect_stats()
-        self.print_stats()
+        self.print_stats()        
 
     def _collect_stats(self):
         end_time = time.perf_counter()  # Higher-precision end time
@@ -212,3 +212,6 @@ class PerformanceStats(SharedMethods):
         print(f"Number of Threads: {threading.active_count()}")
         print(f"Disk Usage - Total: {psutil.disk_usage('/').total / (1024 ** 3):.2f} GB, Used: {psutil.disk_usage('/').used / (1024 ** 3):.2f} GB, Free: {psutil.disk_usage('/').free / (1024 ** 3):.2f} GB")
         print(f"System Info - OS: {platform.system()}, Python: {platform.python_version()}, CPU Count: {os.cpu_count()}")
+    
+    def get_stats(self):
+        return dict(self.stats)

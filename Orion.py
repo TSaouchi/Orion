@@ -59,7 +59,7 @@ if __name__ == "__main__":
     base = Orion.Base()
     
     nzone = 500
-    ninstant = 5000
+    ninstant = 500
     nvar = 100
     n = 1e8
     zones = [f"Zone_{i}" for i in range(nzone)]
