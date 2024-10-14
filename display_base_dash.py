@@ -1,288 +1,191 @@
-### Path and Char manipulation
-import os
-
-### Math
+import dash
+from dash import dcc, html
+from plotly_resampler import FigureResampler
+from flask_caching import Cache
+from dash.dependencies import Input, Output
+import plotly.graph_objs as go
 import numpy as np
-import copy
-import scipy as spy
+import time
 
-import Core as Orion
-from DataProcessor import Processor
-from Utils import *
+# Sample data structure (unchanged)
+data = {}
+n = 1e3
+val = np.arange(0, n)
+for i in range(500):
+    data[f"zone_toto_and_long_name_{i}"] = {}
+    data[f"zone_toto_and_long_name_{i}"][f"instant_toto_and_long_name_{i}"] = {}
+    data[f"zone_toto_and_long_name_{i}"][f"instant_toto_and_long_name_{i}"][f"var_{i}"] =  np.sin(i*val)*np.cos(i*val)
+    data[f"zone_toto_and_long_name_{i}"][f"instant_toto_and_long_name_{i}"]["TimeValue"] = i*val/2.0
 
-Reader = Orion.Reader
-def tmp_reader_BHG(base_blueprint, Reader):
-    base = Orion.Base()
-    for zone, config in base_blueprint.items():
-        base.add_zone(zone)
-        files_dir = list(Reader(config["path"], patterns=config["dir_name_pattern"]
-                            )._Reader__generate_file_list(config["path"], 
-                                                          patterns=config["dir_name_pattern"]
-                                                          ))
-        for dir in files_dir:
-            try:
-                files = list(Reader(os.path.join(config["path"], dir), 
-                                    patterns=config["file_name_pattern"]
-                                    )._Reader__generate_file_list(
-                                        os.path.join(config["path"], dir), 
-                                        patterns=config["file_name_pattern"]))
-            except: continue
-            
-            instant_names = [name.split('.')[0] for name in files]
-            files = [os.path.join(config["path"], dir, file) for file in files]    
+app = dash.Dash(__name__)
+TIMEOUT = 30
+cache = Cache(app.server, config={
+    'CACHE_TYPE': 'filesystem',
+    'CACHE_DIR': 'cache-directory',
+    'CACHE_DEFAULT_TIMEOUT': TIMEOUT
+})
 
-            for file, instant_name in zip(files, instant_names):
-                base[zone].add_instant(instant_name)
-                # Read each file in a dictionary
-                file_data = {}
-                spy.io.loadmat(file, mdict = file_data)
-                
-                # Base attributes
-                file_attr = file_data['File_Header']
-                for attr in file_attr.dtype.names:
-                    base.set_attribute(attr, file_attr[attr][0][0][0])
-                
-                channel_number = int(base.get_attribute('NumberOfChannels'))
-                variable_names = [file_data[f'Channel_{_}_Header']['SignalName'][0][0][0]  for _ in range(1, channel_number)]
-                
-                for nvariable, variable in enumerate(variable_names, start=1):
-                    base[zone][instant_name].add_variable(variable, 
-                                                        [i[0] for i in file_data[f'Channel_{nvariable}_Data']])
-    return Orion.SharedMethods().variable_mapping_cgns(base)
-
-if __name__ == "__main__":
-    # ========================= Cases configuration ============================
-    # ============================== Read inputs ===============================
-    direction = "From_1_to_2"
-    base_blueprint = {
-        "RT" : {
-            "path" : r"C:\__sandBox__\Data\SARC_Gen2_HydraulicTest_Hydac\EWR12857-145",
-            "dir_name_pattern" : "Resp*",
-            "file_name_pattern" : "Valve_Hydac_SN_15_From_2_to_1*"
-        }
-    }
-    # Inputs
-    base = tmp_reader_BHG(base_blueprint, Reader)
-    base = Processor(base).normalization()
+app.layout = html.Div([
+    html.H1("Data Visualization Dashboard"),
     
-    import dask.array as da
-    # Sample data structure
-    data = {}
-    for i in range(500):
-        data[f"zone_toto_and_long_name_{i}"] = {}
-        data[f"zone_toto_and_long_name_{i}"][f"instant_toto_and_long_name_{i}"] = {}
-        for var, val in base[0][0].items():
-            data[f"zone_toto_and_long_name_{i}"][f"instant_toto_and_long_name_{i}"][var] = da.concatenate([val, val + np.max(val), val + 2*np.max(val)])
+    dcc.Dropdown(id='zone-dropdown', options=[{'label': 'All', 'value': 'All'}] + [{'label': zone, 'value': zone} for zone in data.keys()], value=['All'], multi=True, placeholder="Select Zones"),
+    dcc.Dropdown(id='instant-dropdown', multi=True, placeholder="Select Instants", value=['All']),
+    dcc.Dropdown(id='x-variable', placeholder="Select X Variable"),
+    dcc.Dropdown(id='y-variable', multi=True, placeholder="Select Y Variables"),
+    dcc.Dropdown(id='z-variable', multi=True, placeholder="Select Z Variables (optional for 3D plot)"),
     
-    from SharedMethods import SharedMethods
-    var_base = SharedMethods().variables_location(base)
-    for zone in range(int(10)):
-        base.add_zone(f'toto{zone}')
-        for instant in range(int(10)):
-            base[f'toto{zone}'].add_instant(f"instant{instant}")
-            for var in var_base:
-                base[f'toto{zone}'][f"instant{instant}"].add_variable(var, val)
+    dcc.Graph(id='variable-plot')
+])
+
+@app.callback(
+    Output('instant-dropdown', 'options'),
+    Output('instant-dropdown', 'value'),
+    Input('zone-dropdown', 'value')
+)
+def update_instants(selected_zones):
+    if not selected_zones:
+        return [], []
     
-    import time
+    if 'All' in selected_zones:
+        selected_zones = list(data.keys())
+    
+    instants = set()
+    for zone in selected_zones:
+        instants.update(data[zone].keys())
+    
+    instant_options = [{'label': 'All', 'value': 'All'}] + [{'label': instant, 'value': instant} for instant in instants]
+    
+    return instant_options, ['All']
+
+@app.callback(
+    [Output('x-variable', 'options'),
+     Output('y-variable', 'options'),
+     Output('z-variable', 'options')],
+    [Input('zone-dropdown', 'value'),
+     Input('instant-dropdown', 'value')]
+)
+def update_variable_dropdowns(selected_zones, selected_instants):
+    if not selected_zones or not selected_instants:
+        return [], [], []
+    
+    if 'All' in selected_zones:
+        selected_zones = list(data.keys())
+    
+    if 'All' in selected_instants:
+        selected_instants = set()
+        for zone in selected_zones:
+            selected_instants.update(data[zone].keys())
+    
+    variables = set()
+    for zone in selected_zones:
+        for instant in selected_instants:
+            if instant in data[zone]:
+                variables.update(data[zone][instant].keys())
+    
+    x_options = [{'label': var, 'value': var} for var in variables]
+    y_z_options = [{'label': 'All', 'value': 'All'}] + x_options
+    
+    return x_options, y_z_options, y_z_options
+
+@app.callback(
+    Output('variable-plot', 'figure'),
+    [Input('zone-dropdown', 'value'),
+     Input('instant-dropdown', 'value'),
+     Input('x-variable', 'value'),
+     Input('y-variable', 'value'),
+     Input('z-variable', 'value')]
+)
+@cache.memoize(timeout=TIMEOUT)
+def plot_variables(selected_zones, selected_instants, x_var, y_vars, z_vars):
     start_time = time.time()
-    base.compute('TOTO = TimeValue * 5')
-    elapsed_time = time.time() - start_time  # Calculate elapsed time
-    print(f"update_instants execution time: {elapsed_time:.4f} seconds")  # Log the time
-        
-    import dash
-    from dash import dcc, html
-    from plotly_resampler import FigureResampler
-    from flask_caching import Cache
-    from dash.dependencies import Input, Output
-    import plotly.graph_objs as go
-    import numpy as np
-    import time
-    import dask.array as da
+    fig = FigureResampler(go.Figure())
 
-    # Sample data structure
-    data = {}
-    for i in range(500):
-        data[f"zone_toto_and_long_name_{i}"] = {}
-        data[f"zone_toto_and_long_name_{i}"][f"instant_toto_and_long_name_{i}"] = {}
-        for var, val in base[0][0].items():
-            data[f"zone_toto_and_long_name_{i}"][f"instant_toto_and_long_name_{i}"][var] = da.concatenate([val, val + np.max(val), val + 2*np.max(val)])
-
-    app = dash.Dash(__name__)
-    TIMEOUT = 30
-    cache = Cache(app.server, config={
-        'CACHE_TYPE': 'filesystem',
-        'CACHE_DIR': 'cache-directory',
-        'CACHE_DEFAULT_TIMEOUT': TIMEOUT
-    })
-
-    app.layout = html.Div([
-        html.H1("Data Visualization Dashboard"),
-        
-        # Dropdown for Zones (allow multiple selections and Select All)
-        dcc.Dropdown(
-            id='zone-dropdown',
-            options=[{'label': 'All', 'value': 'All'}] + [{'label': zone, 'value': zone} for zone in data.keys()],
-            value=['All'],  # Default to "All" selected
-            multi=True,  # Allow multiple zones to be selected
-            placeholder="Select Zones"
-        ),
-        
-        # Dropdown for Instants (dynamic based on selected zones, allow Select All)
-        dcc.Dropdown(
-            id='instant-dropdown',
-            multi=True,  # Allow multiple instants to be selected
-            placeholder="Select Instants",
-            value=['All']  # Default to "All" selected
-        ),
-        
-        # Dropdown for Variables (dynamic based on selected zones and instants, allow Select All)
-        dcc.Dropdown(
-            id='variable-dropdown',
-            multi=True,  # Allow multiple variables to be selected
-            placeholder="Select Variables",
-            value=[]  # Default nothing selected
-        ),
-        
-        # Graph to plot the variables
-        dcc.Graph(id='variable-plot')
-    ])
-
-    # Callback to update instants based on selected zones
-    @app.callback(
-        Output('instant-dropdown', 'options'),
-        Output('instant-dropdown', 'value'),
-        Input('zone-dropdown', 'value')
-    )
-    def update_instants(selected_zones):
-        start_time = time.time()  # Start timing
-        if not selected_zones:
-            return [], []  # If no zones are selected, return empty lists
-        
-        if 'All' in selected_zones:
-            selected_zones = list(data.keys())  # Select all zones if "All" is selected
-        
-        instants = set()
-        for zone in selected_zones:
-            instants.update(data[zone].keys())
-        
-        instant_options = [{'label': 'All', 'value': 'All'}] + [{'label': instant, 'value': instant} for instant in instants]
-        
-        elapsed_time = time.time() - start_time  # Calculate elapsed time
-        print(f"update_instants execution time: {elapsed_time:.4f} seconds")  # Log the time
-        
-        return instant_options, ['All']  # Default to "All" selected
-
-    # Callback to update variables based on selected zones and instants
-    @app.callback(
-        Output('variable-dropdown', 'options'),
-        Output('variable-dropdown', 'value'),
-        Input('zone-dropdown', 'value'),
-        Input('instant-dropdown', 'value'),
-        Input('variable-dropdown', 'value')  # Added to capture currently selected variables
-    )
-    def update_variables(selected_zones, selected_instants, selected_variables):
-        start_time = time.time()  # Start timing
-        if not selected_zones or not selected_instants:
-            return [], []  # If no zones or instants are selected, return empty lists
-        
-        if 'All' in selected_zones:
-            selected_zones = list(data.keys())  # Select all zones if "All" is selected
-        
-        if 'All' in selected_instants:
-            selected_instants = set()
-            for zone in selected_zones:
-                selected_instants.update(data[zone].keys())  # Select all instants if "All" is selected
-
-        variables = set()
-        for zone in selected_zones:
-            for instant in selected_instants:
-                if instant in data[zone]:
-                    variables.update(data[zone][instant].keys())
-        
-        variable_options = [{'label': 'All', 'value': 'All'}] + [{'label': var, 'value': var} for var in variables]
-        
-        # Preserve previously selected variables if they are still available
-        current_selected_variables = [var for var in variable_options if var['value'] in selected_variables]
-        selected_value = [var['value'] for var in current_selected_variables]
-        
-        elapsed_time = time.time() - start_time  # Calculate elapsed time
-        print(f"update_Variables execution time: {elapsed_time:.4f} seconds")  # Log the time
-        
-        return variable_options, selected_value  # Return available variables and preserve selected variables
-
-    # Callback to plot the selected variables
-    @app.callback(
-        Output('variable-plot', 'figure'),
-        Input('zone-dropdown', 'value'),
-        Input('instant-dropdown', 'value'),
-        Input('variable-dropdown', 'value')
-    )
-    @cache.memoize(timeout=TIMEOUT)
-    def plot_variables(selected_zones, selected_instants, selected_variables):
-        start_time = time.time()  # Start timing
-        fig = FigureResampler(go.Figure())
-
-        if not selected_zones or not selected_instants:
-            fig.update_layout(
-                title='No Data Selected',
-                xaxis={'title': 'Time'},
-                yaxis={'title': 'Value'}
-            )
-            return fig
-
-        if 'All' in selected_zones:
-            selected_zones = list(data.keys())  # Select all zones if "All" is selected
-
-        if 'All' in selected_instants:
-            # If instants are set to "All," get all instants for the selected zones
-            selected_instants = set()
-            for zone in selected_zones:
-                selected_instants.update(data[zone].keys())  # Select all instants if "All" is selected
-
-        if 'All' in selected_variables:
-            # If variables are set to "All," get all variables for the selected zones and instants
-            variables = set()
-            for zone in selected_zones:
-                for instant in selected_instants:
-                    if instant in data[zone]:  # Ensure instant exists in zone
-                        variables.update(data[zone][instant].keys())
-            selected_variables = list(variables)  # Update selected_variables to include all variables for the selected zones and instants
-
-        for zone in selected_zones:
-            for instant in selected_instants:
-                if instant in data[zone]:  # Ensure instant exists in zone
-                    time_values = data[zone][instant]['TimeValue']
-                    for var in selected_variables:
-                        if var in data[zone][instant]:  # Ensure variable exists in instant
-                            trace_name = f"{zone}_{instant}_{var}"
-                            fig.add_trace(go.Scatter(
-                                x=time_values,
-                                y=data[zone][instant][var],
-                                mode='lines',
-                                name=trace_name  # Use custom name for legend
-                            ))
-
-        fig.update_layout(
-            title='Variables Plot',
-            xaxis={'title': 'Time'},
-            yaxis={'title': 'Value'},
-            legend=dict(
-                title='Variables',
-                itemclick='toggle',  # Allow clickable legend items
-                itemdoubleclick='toggleothers'  # Allow double-click to isolate
-            )
-        )
-
-        fig.update_layout(
-            xaxis=dict(
-                rangeslider=dict(
-                    visible=True
-                ),
-            )
-        )
-        elapsed_time = time.time() - start_time  # Calculate elapsed time
-        print(f"Plot variables execution time: {elapsed_time:.4f} seconds")  # Log the time
-        
+    if not selected_zones or not selected_instants or not x_var or not y_vars:
+        fig.update_layout(title='Insufficient Data Selected')
         return fig
 
+    if 'All' in selected_zones:
+        selected_zones = list(data.keys())
+
+    if 'All' in selected_instants:
+        selected_instants = set()
+        for zone in selected_zones:
+            selected_instants.update(data[zone].keys())
+
+    if 'All' in y_vars:
+        y_vars = [var for var in data[list(data.keys())[0]][list(data[list(data.keys())[0]].keys())[0]].keys() if var != x_var]
+
+    if z_vars and 'All' in z_vars:
+        z_vars = [var for var in data[list(data.keys())[0]][list(data[list(data.keys())[0]].keys())[0]].keys() if var != x_var and var not in y_vars]
+
+    is_3d = z_vars and len(z_vars) > 0
+
+    for zone in selected_zones:
+        for instant in selected_instants:
+            if instant in data[zone]:
+                x_data = data[zone][instant].get(x_var, [])
+                
+                for y_var in y_vars:
+                    y_data = data[zone][instant].get(y_var, [])
+                    
+                    if is_3d:
+                        for z_var in z_vars:
+                            z_data = data[zone][instant].get(z_var, [])
+                            if len(x_data) == len(y_data) == len(z_data):
+                                fig.add_trace(go.Scatter3d(
+                                    x=x_data, y=y_data, z=z_data,
+                                    mode='markers',
+                                    name=f"{zone}_{instant}_{y_var}_{z_var}"
+                                ))
+                    else:
+                        if len(x_data) == len(y_data):
+                            fig.add_trace(go.Scatter(
+                                x=x_data, y=y_data,
+                                mode='lines+markers',
+                                name=f"{zone}_{instant}_{y_var}"
+                            ))
+
+    if is_3d:
+        fig.update_layout(
+            scene=dict(
+                xaxis_title=x_var,
+                yaxis_title=', '.join(y_vars),
+                zaxis_title=', '.join(z_vars)
+            ),
+            title='3D Variables Plot'
+        )
+    else:
+        fig.update_layout(
+            xaxis_title=x_var,
+            yaxis_title=', '.join(y_vars),
+            title='2D Variables Plot'
+        )
+
+    # Add rangeslider
+    fig.update_layout(
+        xaxis=dict(
+            rangeslider=dict(visible=True),
+            type="linear"
+        )
+    )
+
+    # Add legend
+    fig.update_layout(
+        legend=dict(
+            title='Traces',
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01,
+            bgcolor="rgba(255, 255, 255, 0.5)"
+        ),
+        showlegend=True
+    )
+
+    elapsed_time = time.time() - start_time
+    print(f"Plot variables execution time: {elapsed_time:.4f} seconds")
+    
+    return fig
+
+if __name__ == '__main__':
     app.run_server(debug=True)
