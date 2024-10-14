@@ -53,7 +53,7 @@ if __name__ == "__main__":
     
     print("Compute variable in base - Multithreading")
     with PerformanceStats() as stats:
-        base.compute('VarMultiplication = var_0 * var_5', chunk_size=1e5)
+        base.compute('VarMultiplication = var_0 * var_5', chunk_size=1000000)
         
     value = stats.get_stats()['execution_time']
     expected_value = 30
