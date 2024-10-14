@@ -1,110 +1,108 @@
 import numpy as np
 
-def get_unique_pairs(x, y, decimal_places=2):
-    """
-    Retrieve unique (x, y) pairs after rounding the x values to a specified number of decimal places.
+def merge_points(data, axis=0, threshold=1e-5, aggregation_method='first'):
 
-    Parameters
-    ----------
-    x : numpy.ndarray
-        Array of x values (e.g., time values).
-    y : numpy.ndarray
-        Array of y values corresponding to the x values (e.g., pressure values).
-    decimal_places : int, optional
-        The number of decimal places to which x values should be rounded (default is 2).
-
-    Returns
-    -------
-    unique_x : numpy.ndarray
-        Array of unique rounded x values.
-    unique_y : numpy.ndarray
-        Array of corresponding unique y values.
-
-    Example
-    -------
+    # Validate inputs
+    if not isinstance(data, np.ndarray):
+        raise ValueError("Data must be a numpy array.")
     
-    .. code-block:: python
-        
-        x = base[0][0]["DeltaPressure"].get_attribute('TimeValue').compute()
-        y = base[0][0]["DeltaPressure"].compute()
-        
-        unique_x, unique_y = get_unique_pairs(x, y, decimal_places=3)
+    if axis < 0 or axis >= data.shape[1]:
+        raise ValueError(f"Invalid axis {axis} for data with shape {data.shape}.")
+    
+    valid_methods = {'mean', 'max', 'min', 'first', 'last'}
+    if aggregation_method not in valid_methods:
+        raise ValueError(f"Invalid aggregation method. Must be one of {valid_methods}.")
 
-    Example Usage
-    -------------
-    >>> unique_x, unique_y = get_unique_pairs(x, y, decimal_places=2)
-    >>> print(unique_x, unique_y)
+    if len(data) == 0:
+        return np.array([])  # Return an empty array if there's no data
+
+    # Sort the data along the specified axis
+    sorted_indices = np.argsort(data[:, axis])
+    sorted_data = data[sorted_indices]
+
+    # Initialize an array to store merged data
+    merged_data = []
+    current_group = [sorted_data[0]]
+
+    for i in range(1, len(sorted_data)):
+        current_point = sorted_data[i]
+        previous_point = current_group[-1]
+
+        # Check if the difference along the specified axis is within the threshold
+        if np.abs(current_point[axis] - previous_point[axis]) <= threshold:
+            current_group.append(current_point)
+        else:
+            # Merge the current group based on the chosen aggregation method
+            merged_data.append(aggregate_group(current_group, aggregation_method))
+            # Start a new group with the current point
+            current_group = [current_point]
+    
+    # Merge the last group
+    if current_group:
+        merged_data.append(aggregate_group(current_group, aggregation_method))
+
+    return np.array(merged_data)
+
+def aggregate_group(group, method):
     """
-    # Round x to the specified decimal places
-    x_rounded = np.round(x, decimal_places)
-
-    # Stack x and y together to form pairs, then use np.unique
-    xy_pairs = np.column_stack((x_rounded, y))
-
-    # Use np.unique to find unique rows and keep the first occurrence of each
-    unique_pairs, indices = np.unique(xy_pairs, axis=0, return_index=True)
-
-    # Sort the unique pairs by x values (first column)
-    sorted_indices = np.argsort(unique_pairs[:, 0])
-
-    # Extract the sorted unique x and y arrays
-    unique_x = unique_pairs[sorted_indices, 0]
-    unique_y = unique_pairs[sorted_indices, 1]
-
-    return unique_x, unique_y
-
-def get_closest_points(x, y, target_value=1, n_return_points=5):
+    Aggregates a group of points using the specified method.
     """
-    Find the n points where the y values are closest to a specified target value, and return the corresponding x and y values.
+    if method == 'mean':
+        return np.mean(group, axis=0)
+    elif method == 'max':
+        return np.max(group, axis=0)
+    elif method == 'min':
+        return np.min(group, axis=0)
+    elif method == 'first':
+        return group[0]
+    elif method == 'last':
+        return group[-1]
+
+def get_closest_points(data, target_value=1, n_return_points=5, axis=0, 
+                       sorted_axis = 0):
+    """
+    Find the n points where the values along a specified axis are closest to a target value,
+    and return the corresponding data points.
 
     Parameters
     ----------
-    x : numpy.ndarray
-        Array of unique x values (e.g., time or rounded x values).
-    y : numpy.ndarray
-        Array of unique y values corresponding to the x values.
+    data : numpy.ndarray
+        Array of data points. Can be 1D, 2D, or 3D.
     target_value : float, optional
-        The value to which the y values should be closest (default is 1).
-    n : int, optional
+        The value to which the points should be closest (default is 1).
+    n_return_points : int, optional
         The number of closest points to return (default is 5).
+    axis : int, optional
+        The axis along which to find the closest points (default is 0).
 
     Returns
     -------
-    x_closest : numpy.ndarray
-        Array of x values corresponding to the closest y values.
-    y_closest : numpy.ndarray
-        Array of y values that are closest to the target_value.
-
-    Example
-    -------
-    
-    .. code-block:: python
-        
-        unique_x, unique_y = get_unique_pairs(x, y)
-        
-        # Find the 3 closest points to the target value 1
-        x_closest, y_closest = get_closest_points(unique_x, unique_y, target_value=1, n=3)
-
-    Example Usage
-    -------------
-    >>> x_closest, y_closest = get_closest_points(unique_x, unique_y, target_value=1, n=5)
-    >>> print(x_closest, y_closest)
+    numpy.ndarray
+        Array of data points that are closest to the target_value along the specified axis.
     """
-    # Ensure n_return_points doesn't exceed the number of available points
-    n_return_points = min(n_return_points, len(y))
+    # Handle 1D data separately
+    if data.ndim == 1:
+        data = data.reshape(-1, 1)
+        axis = 0
 
-    # Calculate the absolute difference between y and target_value
-    diff = np.abs(y - target_value)
+    # Ensure n_return_points doesn't exceed the number of available points
+    n_return_points = min(n_return_points, len(data))
+
+    # Ensure axis is valid
+    if axis >= data.shape[1]:
+        raise ValueError(f"Axis {axis} is out of bounds for shape {data.shape}")
+
+    # Calculate the absolute difference between the specified axis values and target_value
+    diff = np.abs(data[:, axis] - target_value)
     
     # Get the indices of the n smallest differences
-    closest_indices = np.argpartition(diff, n_return_points)[:n_return_points]
+    closest_indices = np.argsort(diff)[:n_return_points]
     
-    # Select the corresponding x and y points
-    closest_x = x[closest_indices]
-    closest_y = y[closest_indices]
+    # Select the corresponding data points
+    closest_points = data[closest_indices]
 
-    # Sort by x values and get sorted indices
-    sorted_indices = np.argsort(closest_x)
+    # Sort by the values along the specified axis
+    sorted_indices = np.argsort(closest_points[:, sorted_axis])
     
-    # Return x and y sorted according to x values
-    return closest_x[sorted_indices], closest_y[sorted_indices]
+    # Return the points sorted according to the specified axis values
+    return closest_points[sorted_indices]
