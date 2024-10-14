@@ -34,19 +34,32 @@ if __name__ == "__main__":
     try:
         np.testing.assert_(value < expected_value, 
                            msg=f"\t\nValue {value} is not less than {expected_value}")
-        print("\t\nValue is less than 40")
+        print(f"\t\nValue {value} is less than {expected_value}")
     except AssertionError as e:
         print(e)
     
-    print("Compute variable in base")
+    print("Compute variable in base - Multiprocessing")
     with PerformanceStats() as stats:
-        base.compute('VarMultiplication = var_0 * var_0')
+        base.compute('VarMultiplication = var_0 * var_5')
         
     value = stats.get_stats()['execution_time']
     expected_value = 30
     try:
         np.testing.assert_(value < expected_value, 
                            msg=f"\t\nValue {value} is not less than {expected_value}")
-        print("\t\nValue is less than 40")
+        print(f"\t\nValue {value} is less than {expected_value}")
+    except AssertionError as e:
+        print(e)
+    
+    print("Compute variable in base - Multithreading")
+    with PerformanceStats() as stats:
+        base.compute('VarMultiplication = var_0 * var_5', chunk_size=1e5)
+        
+    value = stats.get_stats()['execution_time']
+    expected_value = 30
+    try:
+        np.testing.assert_(value < expected_value, 
+                           msg=f"\t\nValue {value} is not less than {expected_value}")
+        print(f"\t\nValue {value} is less than {expected_value}")
     except AssertionError as e:
         print(e)
