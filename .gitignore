@@ -1,9 +1,7 @@
 #Reporting
-Reporting/sphinx/build/*
-Reporting/sphinx/source/*.rst
-!Reporting/sphinx/source/_static/logo
-Reporting/sphinx/source/_static
-!Reporting/sphinx/source/conf.py
+*cache*
+cache-directory
+cache-directory/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
