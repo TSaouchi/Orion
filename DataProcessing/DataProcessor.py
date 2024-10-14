@@ -410,6 +410,8 @@ class Processor(SharedMethods):
         - The Nyquist frequency is half the sampling rate, used to normalize the cutoff frequency.
         - The `filtfilt` function is used for zero-phase filtering, ensuring no phase distortion.
         - The Savitzky-Golay and median filters do not require a `cutoff` frequency and are mainly for noise reduction while preserving signal characteristics like sharp transitions.
+        - More documentation can be found at ``https://pysdr.org/content/filters.html``
+
 
         Example
         -------
