@@ -150,7 +150,7 @@ class Plot(SharedMethods):
         if self.format == 'html':
             plot(fig, filename =  output_path, auto_open = auto_open)
         else:
-            fig.write_image(f"{output_path}.{self.format}", scale = 2)
+            fig.write_image(f"{output_path}.{self.format}", scale = 2, width=1920, height=1080)
 
     def __3D_plot(self, go, fig, x_axis_title, y_axis_title, z_axis_title, x_axis, y_axis, z_axis):
         colors = self.__generate_distinct_colors(len(x_axis['values']))
@@ -382,7 +382,7 @@ class Plot(SharedMethods):
         if self.format == 'html':
             plot(fig, filename =  output_path, auto_open = auto_open)
         else:
-            fig.write_image(f"{output_path}.{self.format}", scale = 2)
+            fig.write_image(f"{output_path}.{self.format}", scale = 2, width=1920, height=1080)
 
     def __polar_plot(self, go, fig, r_axis, theta_axis):
         colors = self.__generate_distinct_colors(len(r_axis['values']))
