@@ -13,6 +13,7 @@ import Core as Orion
 from Debug import PerformanceStats
 
 if __name__ == "__main__":
+    #NOTE - Base init
     base = Orion.Base()
     
     nzone = 500
@@ -38,6 +39,7 @@ if __name__ == "__main__":
     except AssertionError as e:
         print(e)
     
+    #NOTE - Base compute multiporcess
     print("Compute variable in base - Multiprocessing")
     with PerformanceStats() as stats:
         base.compute('VarMultiplication = var_0 * var_5')
@@ -51,6 +53,13 @@ if __name__ == "__main__":
     except AssertionError as e:
         print(e)
     
+    #NOTE - Base init
+    base = Orion.Base()
+    print("Init base")
+    with PerformanceStats() as stats:
+        base.init(zones, instants, var1, var1_value)
+    
+    #NOTE - Base compute multithread
     print("Compute variable in base - Multithreading")
     with PerformanceStats() as stats:
         base.compute('VarMultiplication = var_0 * var_5', chunk_size=1000000)
