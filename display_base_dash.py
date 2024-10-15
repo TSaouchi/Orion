@@ -229,29 +229,26 @@ class Plotter:
         self.app.layout = self.create_layout()
         self.setup_callbacks()
         self.app.run_server(debug=True)
-        
+
 # Sample data structure generation
-def generate_sample_data(n=1e3, num_zones=500):
-    """
-    Generate sample data for the dashboard.
-    
-    Parameters:
-        n: Number of data points per variable.
-        num_zones: Number of zones and instants to create.
-    
-    Returns:
-        data: Dictionary containing zones, instants, and variables.
-    """
+def generate_sample_data(n=1e3, num_zones=5):
     data = {}
-    val = np.arange(0, n)
-    for i in range(num_zones):
-        zone_name = f"zone_toto_and_long_name_{i}"
-        instant_name = f"instant_toto_and_long_name_{i}"
-        data[zone_name] = {instant_name: {}}
-        data[zone_name][instant_name][f"var_{i}"] = np.sin(i * val) * np.cos(i * val)
-        data[zone_name][instant_name]["TimeValue"] = i * val / 2.0
+    x = np.arange(0, n)
+    for zone_id in range(num_zones):
+        zone_name = f"Zone {zone_id+1}"
+        data[zone_name] = {}
+        for instant_id in range(10):
+            instant_name = f"Instant {instant_id+1}"
+            data[zone_name][instant_name] = {
+                f'X': x,
+                f'Y_{instant_id+1}': np.sin(x),
+                f'Y_{instant_id+1}': np.cos(x),
+                f'Z_{instant_id+1}': np.tan(x),
+                f'Z_{instant_id+1}': np.sqrt(x),
+            }
     return data
 
-# Initialize data
-data = generate_sample_data()
-Plotter(data).dash()
+if __name__ == '__main__':
+    data = generate_sample_data()
+    plotter = Plotter(data)
+    plotter.dash()
