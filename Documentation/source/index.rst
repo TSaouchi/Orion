@@ -112,7 +112,7 @@ Work directory tree
                         <li><i class="fa fa-file-code-o"></i> Base.py</li>
                         <li><i class="fa fa-file-code-o"></i> Debug.py</li>
                         <li><i class="fa fa-file-code-o"></i> Formulas.py</li>
-                        <li><i class="fa fa-file-code-o"></i> Ploter.py</li>
+                        <li><i class="fa fa-file-code-o"></i> Plotter.py</li>
                         <li><i class="fa fa-file-code-o"></i> Reader.py</li>
                         <li><i class="fa fa-file-code-o"></i> ScriptParser.py</li>
                         <li><i class="fa fa-file-code-o"></i> SharedMethods.py</li>

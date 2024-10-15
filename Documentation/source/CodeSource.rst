@@ -30,10 +30,10 @@ Formulas.py
    :undoc-members:
    :show-inheritance:
 
-Ploter.py
-^^^^^^^^^
+Plotter.py
+^^^^^^^^^^
 
-.. automodule:: Ploter
+.. automodule:: Plotter
    :members:
    :undoc-members:
    :show-inheritance:
