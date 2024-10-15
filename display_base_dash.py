@@ -124,10 +124,16 @@ class Plotter:
                     if is_3d:
                         for y_var in y_vars:
                             y_data = self.data[zone][instant].get(y_var, [])
-                            stats_data[y_var].extend(y_data)
+                            
+                            if y_var not in stats_data or not stats_data[y_var]:
+                                stats_data[y_var].extend(y_data)
+                            
                             for z_var in z_vars:
                                 z_data = self.data[zone][instant].get(z_var, [])
-                                stats_data[z_var].extend(z_data)
+                                
+                                if z_var not in stats_data or not stats_data[z_var]:
+                                    stats_data[z_var].extend(z_data)
+                                    
                                 if len(x_data) == len(y_data) == len(z_data):
                                     fig.add_trace(go.Scatter3d(
                                         x=x_data, y=y_data, z=z_data,
@@ -137,7 +143,10 @@ class Plotter:
                     else:
                         for y_var in y_vars:
                             y_data = self.data[zone][instant].get(y_var, [])
-                            stats_data[y_var].extend(y_data)
+
+                            if y_var not in stats_data or not stats_data[y_var]:
+                                stats_data[y_var].extend(y_data)
+
                             if len(x_data) == len(y_data):
                                 fig.add_trace(go.Scatter(
                                     x=x_data, y=y_data,
