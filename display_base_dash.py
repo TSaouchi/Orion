@@ -180,8 +180,8 @@ class Plotter:
         fig = go.Figure()
 
         if is_3d:
-            for variable, zone, instant in aggregated_set:
-                for y_var in y_vars:
+            for y_var in y_vars:
+                for variable, zone, instant in aggregated_set:
                     if variable != y_var: continue
                     for z_var in z_vars:
                         fig.add_trace(go.Scatter3d(
@@ -201,8 +201,8 @@ class Plotter:
                     title='3D Variables Plot'
                 )
         else:
-            for variable, zone, instant in aggregated_set:
-                for y_var in y_vars:
+            for y_var in y_vars:
+                for variable, zone, instant in aggregated_set:
                     if variable != y_var: continue
                     fig.add_trace(go.Scatter(
                         x=self.base[zone][instant].get(x_var, []),
@@ -288,7 +288,7 @@ def generate_sample_data(n=1e3, num_zones=5):
                 f'Y_{instant_id+1}': np.sin(x),
                 f'Ybis_{instant_id+1}': np.cos(x),
                 f'Z_{instant_id+1}': np.tan(x),
-                f'Zbis_{instant_id+1}': np.sqrt(x),
+                f'Zbis_{instant_id+1}': np.tan(x),
             }
     return data
 
