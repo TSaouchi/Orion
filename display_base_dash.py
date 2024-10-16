@@ -162,13 +162,12 @@ class Plotter:
         fig = self.create_figure(aggregated_set, x_var, y_vars or [], 
                                  z_vars or [], is_3d)
 
+        stats_df = pd.DataFrame()
         for variable, zone, instant in aggregated_set:
             if variable not in self.base[zone][instant].keys(): continue
             stats_names, variable_stats = \
                 compute_stats(self.base[zone][instant][variable].data)
-            variable_stats = [f"{zone}/{instant}/{variable}"] + variable_stats
-        stats_df = pd.DataFrame()
-        stats_df.insert(0, variable_stats[0], variable_stats[1:])
+            stats_df.insert(0, f"{zone}/{instant}/{variable}", variable_stats)
         stats_df.insert(0, 'Stat', stats_names)
 
         end_time = time.time()
