@@ -8,9 +8,11 @@ import pandas as pd
 import time
 from collections import defaultdict
 
+from Utils import compute_stats
+
 class Plotter:
-    def __init__(self, data):
-        self.data = self._process_data(data)
+    def __init__(self, base):
+        self.base = base
         self.app = dash.Dash(__name__)
         self.cache = Cache(self.app.server, config={
             'CACHE_TYPE': 'filesystem',
@@ -18,31 +20,20 @@ class Plotter:
             'CACHE_DEFAULT_TIMEOUT': 120
         })
 
-    def _process_data(self, data):
-        if isinstance(data, pd.DataFrame):
-            return self._convert_dataframe_to_dict(data)
-        elif isinstance(data, dict):
-            return data
-        else:
-            raise ValueError("Input data must be a dictionary or a pandas DataFrame.")
-
-    def _convert_dataframe_to_dict(self, df):
-        result = defaultdict(lambda: defaultdict(dict))
-        for _, row in df.iterrows():
-            zone = row['Zone']
-            instant = row['Instant']
-            for col in df.columns:
-                if col not in ['Zone', 'Instant']:
-                    result[zone][instant][col] = result[zone][instant].get(col, []) + [row[col]]
-        return dict(result)
-
     def create_layout(self):
         return html.Div([
+            # Title
             html.H1("Data Visualization Dashboard"),
+            # DropDown menus
             self.create_dropdowns(),
-            dcc.Graph(id='variable-plot', style={'height': '800px', 'margin-top': '50px'}),
+            # Graph view zone
+            dcc.Graph(id='variable-plot', 
+                      style={'height': '800px', 'margin-top': '50px'}),
+            # Stats Table zone
             html.Div(id='stats-table'),
-            dcc.Loading(id="loading-1", type="default", children=html.Div(id="loading-output-1"))
+            # Looding bar (not working!!)
+            dcc.Loading(id="loading-1", 
+                        type="default", children=html.Div(id="loading-output-1"))
         ])
 
     def create_dropdowns(self):
@@ -50,28 +41,46 @@ class Plotter:
             html.Div([
                 dcc.Dropdown(
                     id='zone-dropdown',
-                    options=[{'label': 'All', 'value': 'All'}] + [{'label': zone, 'value': zone} for zone in self.data.keys()],
+                    options=[{'label': 'All', 'value': 'All'}] + \
+                        [{'label': zone, 'value': zone} for zone in self.base.keys()],
                     value=['All'], multi=True, placeholder="Select Zones"
                 ),
-                dcc.Dropdown(id='instant-dropdown', multi=True, placeholder="Select Instants", value=['All']),
+                
+                dcc.Dropdown(
+                    id='instant-dropdown', 
+                    multi=True, 
+                    placeholder="Select Instants", 
+                    value=['All']),
             ], style={'width': '48%', 'display': 'inline-block'}),
 
             html.Div([
-                dcc.Dropdown(id='x-variable', placeholder="Select X Variable"),
-                dcc.Dropdown(id='y-variable', multi=True, placeholder="Select Y Variables"),
-                dcc.Dropdown(id='z-variable', multi=True, placeholder="Select Z Variables (optional for 3D plot)", style={'z-index': '1'})
+                dcc.Dropdown(
+                    id='x-variable', 
+                    placeholder="Select X Variable"),
+                dcc.Dropdown(
+                    id='y-variable',
+                    multi=True, 
+                    placeholder="Select Y Variables"),
+                dcc.Dropdown(
+                    id='z-variable', 
+                    multi=True, 
+                    placeholder="Select Z Variables (optional for 3D plot)", style={'z-index': '1'})
             ], style={'width': '48%', 'float': 'right', 'display': 'inline-block'})
         ])
 
     def get_available_variables(self, selected_zones, selected_instants):
-        selected_zones = self._get_selected_items(selected_zones, self.data.keys())
-        selected_instants = self._get_selected_items(selected_instants, set().union(*[self.data[zone].keys() for zone in selected_zones]))
-
+        selected_zones = self._get_selected_items(selected_zones, 
+                                                  self.base.keys())
+        selected_instants = self._get_selected_items(selected_instants, 
+                                                     set().union(*
+                                                                 [self.base[zone].keys() for zone in selected_zones]
+                                                                 )
+                                                     )
         variables = set()
         for zone in selected_zones:
             for instant in selected_instants:
-                if instant in self.data[zone]:
-                    variables.update(self.data[zone][instant].keys())
+                if instant in self.base[zone].keys():
+                    variables.update(self.base[zone][instant].keys())
 
         return list(variables)
 
@@ -82,8 +91,8 @@ class Plotter:
         if not selected_zones:
             return []
 
-        selected_zones = self._get_selected_items(selected_zones, self.data.keys())
-        instants = set().union(*[self.data[zone].keys() for zone in selected_zones])
+        selected_zones = self._get_selected_items(selected_zones, self.base.keys())
+        instants = set().union(*[self.base[zone].keys() for zone in selected_zones])
 
         return [{'label': 'All', 'value': 'All'}] + [{'label': instant, 'value': instant} for instant in instants]
 
@@ -103,30 +112,24 @@ class Plotter:
         y_vars = y_vars or []
         z_vars = z_vars or []
         
-        aggregated_data = {x_var: [], **{y_var: [] for y_var in y_vars}, **{z_var: [] for z_var in z_vars}}
         aggregated_set = set()
 
         for zone in selected_zones:
             for instant in selected_instants:
-                if instant in self.data[zone]:
+                if instant in self.base[zone].keys():
                     # Collect X, Y, and Z data only once
-                    x_data = self.data[zone][instant].get(x_var, [])
-                    if len(x_data) > 0 and (x_var, zone, instant) not in aggregated_set:
-                        aggregated_data[x_var].extend(x_data)
+                    if (x_var, zone, instant) not in aggregated_set:
                         aggregated_set.add((x_var, zone, instant))
 
-                    
                     for var_group, vars_list in zip([y_vars, z_vars], [y_vars, z_vars]):
                         for var in vars_list:
-                            data = self.data[zone][instant].get(var, [])
-                            if len(data) > 0 and (var, zone, instant) not in aggregated_set:
-                                aggregated_data[var].extend(data)
+                            if (var, zone, instant) not in aggregated_set:
                                 aggregated_set.add((var, zone, instant))
 
-        min_length = min([len(aggregated_data[var]) for var in aggregated_data if aggregated_data[var]])
-        return {var: data[:min_length] for var, data in aggregated_data.items()}
+        return aggregated_set
 
-    def update_graph_and_stats(self, selected_zones, selected_instants, x_var, y_vars, z_vars):
+    def update_graph_and_stats(self, selected_zones, selected_instants, 
+                               x_var, y_vars, z_vars):
         start_time = time.time()
 
         if not selected_zones or not selected_instants or not x_var or not y_vars:
@@ -146,59 +149,74 @@ class Plotter:
                     selected_instants)
                     ) - set(x_var))
             
-        selected_zones = self._get_selected_items(selected_zones, self.data.keys())
-        selected_instants = self._get_selected_items(selected_instants, set().union(*[self.data[zone].keys() for zone in selected_zones]))
+        selected_zones = self._get_selected_items(selected_zones, self.base.keys())
+        selected_instants = self._get_selected_items(
+            selected_instants, 
+            set().union(*[self.base[zone].keys() for zone in selected_zones])
+            )
 
-        aggregated_data = self.aggregate_data(selected_zones, selected_instants, x_var, y_vars, z_vars)
+        aggregated_set = self.aggregate_data(selected_zones, selected_instants, 
+                                             x_var, y_vars, z_vars)
         is_3d = z_vars is not None and len(z_vars) > 0
 
+        fig = self.create_figure(aggregated_set, x_var, y_vars or [], 
+                                 z_vars or [], is_3d)
 
-        fig = self.create_figure(aggregated_data, x_var, y_vars or [], z_vars or [], is_3d)
-
-        stats_df = pd.DataFrame(aggregated_data).describe()
-        stats_df.insert(0, 'Stat', stats_df.index)
+        for variable, zone, instant in aggregated_set:
+            if variable not in self.base[zone][instant].keys(): continue
+            stats_names, variable_stats = \
+                compute_stats(self.base[zone][instant][variable].data)
+            variable_stats = [f"{zone}/{instant}/{variable}"] + variable_stats
+        stats_df = pd.DataFrame()
+        stats_df.insert(0, variable_stats[0], variable_stats[1:])
+        stats_df.insert(0, 'Stat', stats_names)
 
         end_time = time.time()
         print(f"Time taken to update graph: {end_time - start_time:.2f}s")
 
         return fig, self.create_stats_table(stats_df)
 
-    def create_figure(self, aggregated_data, x_var, y_vars, z_vars, is_3d):
+    def create_figure(self, aggregated_set, x_var, y_vars, 
+                      z_vars, is_3d):
         fig = go.Figure()
 
         if is_3d:
-            for y_var in y_vars:
-                for z_var in z_vars:
-                    fig.add_trace(go.Scatter3d(
-                        x=aggregated_data[x_var],
-                        y=aggregated_data[y_var],
-                        z=aggregated_data[z_var],
-                        mode='markers',
-                        name=f"{y_var}_{z_var}"
+            for variable, zone, instant in aggregated_set:
+                for y_var in y_vars:
+                    if variable != y_var: continue
+                    for z_var in z_vars:
+                        fig.add_trace(go.Scatter3d(
+                            x=self.base[zone][instant].get(x_var, []),
+                            y=self.base[zone][instant].get(y_var, []),
+                            z=self.base[zone][instant].get(z_var, []),
+                            mode='markers',
+                            name=f"{zone}_{instant}_{y_var}_{z_var}"
+                        ))
+
+                fig.update_layout(
+                    scene=dict(
+                        xaxis_title=x_var,
+                        yaxis_title=', '.join(y_vars),
+                        zaxis_title=', '.join(z_vars)
+                    ),
+                    title='3D Variables Plot'
+                )
+        else:
+            for variable, zone, instant in aggregated_set:
+                for y_var in y_vars:
+                    if variable != y_var: continue
+                    fig.add_trace(go.Scatter(
+                        x=self.base[zone][instant].get(x_var, []),
+                        y=self.base[zone][instant].get(y_var, []),
+                        mode='lines',
+                        name=f"{zone}_{instant}_{y_var}"
                     ))
 
-            fig.update_layout(
-                scene=dict(
-                    xaxis_title=x_var,
-                    yaxis_title=', '.join(y_vars),
-                    zaxis_title=', '.join(z_vars)
-                ),
-                title='3D Variables Plot'
-            )
-        else:
-            for y_var in y_vars:
-                fig.add_trace(go.Scatter(
-                    x=aggregated_data[x_var],
-                    y=aggregated_data[y_var],
-                    mode='lines',
-                    name=y_var
-                ))
-
-            fig.update_layout(
-                xaxis_title=x_var,
-                yaxis_title=', '.join(y_vars),
-                title='2D Variables Plot'
-            )
+                    fig.update_layout(
+                        xaxis_title=x_var,
+                        yaxis_title=', '.join(y_vars),
+                        title='2D Variables Plot'
+                    )
 
         fig.update_layout(
             xaxis=dict(rangeslider=dict(visible=True), type="linear"),

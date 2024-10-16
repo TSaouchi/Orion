@@ -1,9 +1,9 @@
-import numpy as np
 import dash
 from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output
 from flask_caching import Cache
 import plotly.graph_objs as go
+import numpy as np
 import pandas as pd
 import time
 from collections import defaultdict
@@ -16,7 +16,7 @@ class Plotter:
             'CACHE_TYPE': 'filesystem',
             'CACHE_DIR': 'cache-directory',
             'CACHE_DEFAULT_TIMEOUT': 120  # Increased cache timeout for performance
-        }) 
+        })
 
     def create_layout(self):
         return html.Div([
@@ -92,13 +92,10 @@ class Plotter:
         if not selected_zones or not selected_instants or not x_var or not y_vars:
             return fig, None
 
-        # Get valid zones and instants
         selected_zones = self._get_selected_items(selected_zones, self.data.keys())
         selected_instants = self._get_selected_items(selected_instants, set().union(*[self.data[zone].keys() for zone in selected_zones]))
 
         available_vars = self.get_available_variables(selected_zones, selected_instants)
-
-        # Handle 'All' selection for y and z variables
         if 'All' in y_vars:
             y_vars = [var for var in available_vars if var != x_var]
         if z_vars and 'All' in z_vars:
@@ -106,100 +103,14 @@ class Plotter:
         elif not z_vars:
             z_vars = []
 
-        stats_data = defaultdict(list)
-        is_3d = len(z_vars) > 0
+        fig, stats_df = self.plot_data_and_compute_stats(selected_zones, selected_instants, x_var, y_vars, z_vars, fig)
 
-        # Dictionary to store aggregated data for each variable
-        aggregated_data = {x_var: [], **{y_var: [] for y_var in y_vars}, **{z_var: [] for z_var in z_vars}}
-        aggregated_set = set()  # To track processed variable-zone-instant combinations
-
-        for zone in selected_zones:
-            for instant in selected_instants:
-                if instant in self.data[zone]:
-                    # Combine x variable data
-                    x_data = self.data[zone][instant].get(x_var, [])
-                    if len(x_data) > 0 and (x_var, zone, instant) not in aggregated_set:
-                        aggregated_data[x_var].extend(x_data)
-                        aggregated_set.add((x_var, zone, instant))
-
-                    # Combine y variable data
-                    for y_var in y_vars:
-                        y_data = self.data[zone][instant].get(y_var, [])
-                        if len(y_data) > 0 and (y_var, zone, instant) not in aggregated_set:
-                            aggregated_data[y_var].extend(y_data)
-                            aggregated_set.add((y_var, zone, instant))
-
-                    # Combine z variable data (if applicable)
-                    for z_var in z_vars:
-                        z_data = self.data[zone][instant].get(z_var, [])
-                        if len(z_data) > 0 and (z_var, zone, instant) not in aggregated_set:
-                            aggregated_data[z_var].extend(z_data)
-                            aggregated_set.add((z_var, zone, instant))
-
-        # Ensure all aggregated data has the same length
-        min_length = min(len(aggregated_data[x_var]), *[len(aggregated_data[y_var]) for y_var in y_vars], *[len(aggregated_data[z_var]) for z_var in z_vars])
-        aggregated_data = {var: data[:min_length] for var, data in aggregated_data.items()}
-
-        # Now plot the aggregated data
-        if is_3d:
-            for y_var in y_vars:
-                for z_var in z_vars:
-                    fig.add_trace(go.Scatter3d(
-                        x=aggregated_data[x_var],
-                        y=aggregated_data[y_var],
-                        z=aggregated_data[z_var],
-                        mode='markers',
-                        name=f"{y_var}_{z_var}"
-                    ))
-
-            fig.update_layout(
-                scene=dict(
-                    xaxis_title=x_var,
-                    yaxis_title=', '.join(y_vars),
-                    zaxis_title=', '.join(z_vars)
-                ),
-                title='3D Variables Plot'
-            )
-        else:
-            for y_var in y_vars:
-                fig.add_trace(go.Scatter(
-                    x=aggregated_data[x_var],
-                    y=aggregated_data[y_var],
-                    mode='lines',
-                    name=y_var
-                ))
-
-            fig.update_layout(
-                xaxis_title=x_var,
-                yaxis_title=', '.join(y_vars),
-                title='2D Variables Plot'
-            )
-
-        fig.update_layout(
-            xaxis=dict(
-                rangeslider=dict(visible=True),
-                type="linear"
-            ),
-            legend=dict(
-                title='Traces',
-                yanchor="top",
-                y=0.99,
-                xanchor="left",
-                x=0.01,
-                bgcolor="rgba(255, 255, 255, 0.5)"
-            ),
-            showlegend=True
-        )
-
-        # Create stats for the aggregated data
-        stats_df = pd.DataFrame(aggregated_data).describe()
-        stats_df.insert(0, 'Stat', stats_df.index)
+        stats_table = self.create_stats_table(stats_df)
 
         end_time = time.time()
         print(f"Time taken to update graph: {end_time - start_time:.2f}s")
 
-        return fig, self.create_stats_table(stats_df)
-
+        return fig, stats_table
 
     def plot_data_and_compute_stats(self, selected_zones, selected_instants, x_var, y_vars, z_vars, fig):
         stats_data = defaultdict(list)
@@ -213,16 +124,10 @@ class Plotter:
                     if is_3d:
                         for y_var in y_vars:
                             y_data = self.data[zone][instant].get(y_var, [])
-                            
-                            if y_var not in stats_data or not stats_data[y_var]:
-                                stats_data[y_var].extend(y_data)
-                            
+                            stats_data[y_var].extend(y_data)
                             for z_var in z_vars:
                                 z_data = self.data[zone][instant].get(z_var, [])
-                                
-                                if z_var not in stats_data or not stats_data[z_var]:
-                                    stats_data[z_var].extend(z_data)
-                                    
+                                stats_data[z_var].extend(z_data)
                                 if len(x_data) == len(y_data) == len(z_data):
                                     fig.add_trace(go.Scatter3d(
                                         x=x_data, y=y_data, z=z_data,
@@ -232,10 +137,7 @@ class Plotter:
                     else:
                         for y_var in y_vars:
                             y_data = self.data[zone][instant].get(y_var, [])
-
-                            if y_var not in stats_data or not stats_data[y_var]:
-                                stats_data[y_var].extend(y_data)
-
+                            stats_data[y_var].extend(y_data)
                             if len(x_data) == len(y_data):
                                 fig.add_trace(go.Scatter(
                                     x=x_data, y=y_data,

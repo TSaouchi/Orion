@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import stats
 
 def get_unique_pairs(x, y, decimal_places=2):
     """
@@ -108,3 +109,49 @@ def get_closest_points(x, y, target_value=1, n_return_points=5):
     
     # Return x and y sorted according to x values
     return closest_x[sorted_indices], closest_y[sorted_indices]
+
+def compute_stats(x):
+    """
+    Compute descriptive statistics for a given array.
+
+    Parameters
+    ----------
+    x : numpy.ndarray
+        Input array for which to compute the statistics.
+
+    Returns
+    -------
+    stats_names : list
+        List of strings representing the names of the computed statistics.
+        These include 'count', 'min', 'max', 'mean', 'variance', 'skewness', and 'kurtosis'.
+    stats_values : list
+        List of computed values corresponding to the statistics in `stats_names`.
+        These include the number of observations, minimum, maximum, mean, variance, skewness, and kurtosis.
+
+    Example
+    -------
+    
+    .. code-block:: python
+
+        import numpy as np
+        from scipy import stats
+
+        data = np.array([1, 2, 3, 4, 5])
+        stats_names, stats_values = compute_stats(data)
+        print(stats_names, stats_values)
+
+    Example Usage
+    -------------
+    >>> data = np.array([1, 2, 3, 4, 5])
+    >>> stats_names, stats_values = compute_stats(data)
+    >>> print(stats_names, stats_values)
+    """
+    stats_result = stats.describe(x)
+    stats_names = ['count', 'min', 'max', 'mean', 'variance', 'skewness', 
+                   'kurtosis']
+    stats_values = [stats_result.nobs, stats_result.minmax[0], stats_result.minmax[1], 
+                    stats_result.mean, stats_result.variance, stats_result.skewness, 
+                    stats_result.kurtosis]
+    
+    return stats_names, stats_values
+    
