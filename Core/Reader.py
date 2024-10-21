@@ -150,27 +150,20 @@ class Reader(SharedMethods):
         return instant_naming
 
     def __read_ascii(self, file_path, variables = None, custom_header = None, verbose = True, **kwargs):
-        # Determine the file extension
-        file_extension = file_path.split('.')[-1].lower()
-
         # Read the file content
         with open(file_path, 'r') as file:
             lines = file.readlines()
 
-        # Detect the delimiter
-        if file_extension == 'csv':
-            delimiter = kwargs.get("CSV_delimiter", '\t')
-        else:  # For .dat, .txt, and other flat files, we'll auto-detect
-            first_data_line = next((line for line in lines if re.match(r'^[\w\s.,-]+([,;\t][\w\s.,-]+)+$', line)), None)
-            if first_data_line:
-                if '\t' in first_data_line:
-                    delimiter = '\t'
-                elif ';' in first_data_line:
-                    delimiter = ';'
-                else:
-                    delimiter = ','
+        first_data_line = next((line for line in lines if re.match(r'^[\w\s.,-]+([,;\t][\w\s.,-]+)+$', line)), None)
+        if first_data_line:
+            if '\t' in first_data_line:
+                delimiter = '\t'
+            elif ';' in first_data_line:
+                delimiter = ';'
             else:
-                raise ValueError("Unable to detect delimiter in the file")
+                delimiter = ','
+        else:
+            raise ValueError("Unable to detect delimiter in the file")
 
         if custom_header is None:
             # Extract header information
