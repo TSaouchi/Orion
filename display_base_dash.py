@@ -6,7 +6,6 @@ from flask_caching import Cache
 import plotly.graph_objs as go
 import pandas as pd
 import time
-from collections import defaultdict
 
 from Utils import compute_stats
 
@@ -43,7 +42,9 @@ class Plotter:
                     id='zone-dropdown',
                     options=[{'label': 'All', 'value': 'All'}] + \
                         [{'label': zone, 'value': zone} for zone in self.base.keys()],
-                    value=['All'], multi=True, placeholder="Select Zones"
+                    value=['All'], 
+                    multi=True, 
+                    placeholder="Select Zones"
                 ),
                 
                 dcc.Dropdown(
@@ -82,7 +83,7 @@ class Plotter:
                 if instant in self.base[zone].keys():
                     variables.update(self.base[zone][instant].keys())
 
-        return list(variables)
+        return sorted(list(variables))
 
     def _get_selected_items(self, selected_items, all_items):
         return list(all_items) if 'All' in selected_items else selected_items
@@ -92,7 +93,7 @@ class Plotter:
             return []
 
         selected_zones = self._get_selected_items(selected_zones, self.base.keys())
-        instants = set().union(*[self.base[zone].keys() for zone in selected_zones])
+        instants = sorted([*set().union(*[self.base[zone].keys() for zone in selected_zones])])
 
         return [{'label': 'All', 'value': 'All'}] + [{'label': instant, 'value': instant} for instant in instants]
 
@@ -278,18 +279,30 @@ class Plotter:
 # Sample data structure generation
 def generate_sample_data(n=1e3, num_zones=5):
     data = {}
-    x = np.arange(0, n)
-    for zone_id in range(num_zones):
-        zone_name = f"Zone {zone_id+1}"
+    x = np.arange(0, 1, 0.001)
+    for zone_id in np.arange(0, 2):
+        zone_name = f"Zone {zone_id}"
         data[zone_name] = {}
-        for instant_id in range(10):
-            instant_name = f"Instant {instant_id+1}"
+        for instant_id in np.arange(0, 2):
+            instant_name = f"Instant {instant_id}"
             data[zone_name][instant_name] = {
                 f'X': x,
-                f'Y_{instant_id+1}': np.sin(x),
-                f'Ybis_{instant_id+1}': np.cos(x),
-                f'Z_{instant_id+1}': np.tan(x),
-                f'Zbis_{instant_id+1}': np.tan(x),
+                f'Y_{instant_id}': np.sin(x),
+                f'Ybis_{instant_id}': np.cos(x),
+                f'Z_{instant_id}': np.tan(x),
+                f'Zbis_{instant_id}': np.tan(x),
+            }
+    for zone_id in np.arange(2, 5):
+        zone_name = f"Zone {zone_id}"
+        data[zone_name] = {}
+        for instant_id in np.arange(2, 5):
+            instant_name = f"Instant {instant_id}"
+            data[zone_name][instant_name] = {
+                f'X': x,
+                f'Y_{instant_id}': np.sin(x),
+                f'Ybis_{instant_id}': np.cos(x),
+                f'Z_{instant_id}': np.tan(x),
+                f'Zbis_{instant_id}': np.tan(x),
             }
     return data
 
