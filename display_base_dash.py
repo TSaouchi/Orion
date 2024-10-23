@@ -175,6 +175,9 @@ class Plotter:
         print(f"Time taken to update graph: {end_time - start_time:.2f}s")
 
         return fig, self.create_stats_table(stats_df)
+    
+    def __get_data(self, variable, zone, instant):
+        return self.base[zone][instant].get(variable, []).data if hasattr(self.base[zone][instant].get(variable, []), 'data') else []
 
     def create_figure(self, aggregated_set, x_var, y_vars, 
                       z_vars, is_3d):
@@ -186,9 +189,9 @@ class Plotter:
                     if variable != y_var: continue
                     for z_var in z_vars:
                         fig.add_trace(go.Scatter3d(
-                            x=self.base[zone][instant].get(x_var, []),
-                            y=self.base[zone][instant].get(y_var, []),
-                            z=self.base[zone][instant].get(z_var, []),
+                            x=self.__get_data(x_var, zone, instant),
+                            y=self.__get_data(y_var, zone, instant),
+                            z=self.__get_data(z_var, zone, instant),
                             mode='markers',
                             name=f"{zone}_{instant}_{y_var}_{z_var}"
                         ))
@@ -206,8 +209,8 @@ class Plotter:
                 for variable, zone, instant in aggregated_set:
                     if variable != y_var: continue
                     fig.add_trace(go.Scatter(
-                        x=self.base[zone][instant].get(x_var, []),
-                        y=self.base[zone][instant].get(y_var, []),
+                        x=self.__get_data(x_var, zone, instant),
+                        y=self.__get_data(y_var, zone, instant),
                         mode='lines',
                         name=f"{zone}_{instant}_{y_var}"
                     ))
@@ -276,37 +279,44 @@ class Plotter:
         self.setup_callbacks()
         self.app.run_server(debug=True)
 
-# Sample data structure generation
-def generate_sample_data(n=1e3, num_zones=5):
-    data = {}
-    x = np.arange(0, 1, 0.001)
-    for zone_id in np.arange(0, 2):
-        zone_name = f"Zone {zone_id}"
-        data[zone_name] = {}
-        for instant_id in np.arange(0, 2):
-            instant_name = f"Instant {instant_id}"
-            data[zone_name][instant_name] = {
-                f'X': x,
-                f'Y_{instant_id}': np.sin(x),
-                f'Ybis_{instant_id}': np.cos(x),
-                f'Z_{instant_id}': np.tan(x),
-                f'Zbis_{instant_id}': np.tan(x),
-            }
-    for zone_id in np.arange(2, 5):
-        zone_name = f"Zone {zone_id}"
-        data[zone_name] = {}
-        for instant_id in np.arange(2, 5):
-            instant_name = f"Instant {instant_id}"
-            data[zone_name][instant_name] = {
-                f'X': x,
-                f'Y_{instant_id}': np.sin(x),
-                f'Ybis_{instant_id}': np.cos(x),
-                f'Z_{instant_id}': np.tan(x),
-                f'Zbis_{instant_id}': np.tan(x),
-            }
-    return data
 
 if __name__ == '__main__':
+    
+    import Core as Orion
+    import dask.array as da
+    def generate_sample_data():
+        base = Orion.Base()
+        nzone = 5
+        ninstant = 5
+        n = 10
+        zones = [f"Zone_{i}" for i in range(nzone)]
+        instants = [f"Instant_{i}" for i in range(ninstant)]
+        base.init(zones, instants)
+        
+        var1 = [f"var_{i}" for i in range(0, 5)]
+        var2 = [f"var_{i}" for i in range(50, 60)]
+        var3 = [f"var_{i}" for i in range(60, 70)]
+        
+        for zone in zones[0:2]:
+            for instant in instants:
+                for var in var1:
+                    base[zone][instant].add_variable(var, 
+                                                     da.random.random(n, 1)
+                                                     )
+        for zone in zones[2:3]:
+            for instant in instants:
+                for var in var2:
+                    base[zone][instant].add_variable(var, 
+                                                     da.random.random(n, 1)
+                                                     )
+        for zone in zones[3:5]:
+            for instant in instants:
+                for var in var3:
+                    base[zone][instant].add_variable(var, 
+                                                     da.random.random(n, 1)
+                                                     )
+        return base
     data = generate_sample_data()
+    
     plotter = Plotter(data)
     plotter.run()
