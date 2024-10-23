@@ -238,7 +238,7 @@ class Plotter:
             data=stats_df.to_dict('records'),
             style_table={'overflowX': 'scroll'}
         )
-
+    
     def setup_callbacks(self):
         @self.app.callback(
             Output('instant-dropdown', 'options'),
@@ -266,7 +266,7 @@ class Plotter:
              Input('y-variable', 'value'),
              Input('z-variable', 'value')]
         )
-        @self.cache.memoize(timeout=30)
+        @self.cache.memoize(timeout=40)
         def update_graph_callback(selected_zones, selected_instants, x_var, y_vars, z_vars):
             return self.update_graph_and_stats(selected_zones, selected_instants, x_var, y_vars, z_vars)
 
