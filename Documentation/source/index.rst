@@ -8,7 +8,7 @@ Welcome to Orion's documentation!
    :scale: 20%   
    :alt: Description of the image
       
-This tool serves ...
+Python-based API for post-processing large-scale data. The API is designed to handle multi-dimensional data across various zones, time instants, and variables, offering scalable and parallelized computation capabilities.
 
 Orion usage principle
 ---------------------
@@ -123,6 +123,7 @@ Work directory tree
                   <li><i class="fa fa-folder-open"></i> DataProcessing
                      <ul>
                         <li><i class="fa fa-file-code-o"></i> DataProcessor.py</li>
+                        <li><i class="fa fa-file-code-o"></i> Utils.py</li>
                      </ul>
                   </li>
                   Sphinx module
@@ -132,6 +133,8 @@ Work directory tree
                      <ul>
                         <li><i class="fa fa-file-code-o"></i> test_base.py</li>
                         <li><i class="fa fa-file-code-o"></i> test_reader.py</li>
+                        <li><i class="fa fa-file-code-o"></i> test_dataprocessing.py</li>
+                        <li><i class="fa fa-file-code-o"></i> performance_benchmark.py</li>
                      </ul>
                   </li>
                </ul>

@@ -1,7 +1,7 @@
 # Metadata
 __title__ = 'Orion'
 __description__ = 'A package for data processing, system simulation, and CFD post-processing.'
-__version__ = '1.0.1'
+__version__ = 'X.X.X'
 __author__ = 'Toufik Saouchi'
 __author_email__ = 'toufik.saouchi@gmail.com'
 __license__ = '[Your License]'

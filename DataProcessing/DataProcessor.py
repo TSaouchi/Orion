@@ -1147,195 +1147,6 @@ class Processor(SharedMethods):
         output_signal_smooth = np.concatenate([y_smooth_first, y_smooth_middle, y_smooth_last])
 
         return output_signal_smooth
-
-    @staticmethod
-    def compute_transfer_function(input_signal, output_signal, time, order = (1, 2),
-                              method = 'scipy_minimize', initial_params = None,
-                              freq_range = None):
-        """
-        Compute the transfer function between input and output signals using optimization.
-
-        Parameters
-        ----------
-        input_signal : numpy.array or dask.array
-            The input signal to the system.
-        output_signal : numpy.array or dask.array
-            The output signal from the system.
-        time : numpy.array or dask.array
-            Time values corresponding to the signals.
-        order : tuple of int, optional
-            The order of the numerator and denominator of the transfer function. Default is (1, 2).
-        method : str, optional
-            The optimization method to use. Default is 'scipy_minimize'.
-        initial_params : array-like, optional
-            Initial guess for the transfer function parameters. If None, defaults to ones. Default is None.
-        freq_range : tuple of float, optional
-            The frequency range for computing the frequency response. If None, uses a default range. Default is None.
-
-        Returns
-        -------
-        system_optimized : scipy.signal.TransferFunction
-            The optimized transfer function system.
-        result_dict : dict
-            A dictionary containing the computed results including:
-            - 'frequencies': Frequency values.
-            - 'magnitude': Magnitude of the frequency response.
-            - 'phase': Phase of the frequency response.
-            - 'is_stable': Boolean indicating whether the system is stable.
-            - 'nyquist': Frequency response for the Nyquist plot.
-            - 'coherence': Coherence between input and output signals.
-            - 'params': Optimized parameters of the transfer function.
-            - 'method': The optimization method used.
-            - 'order': The order of the numerator and denominator.
-
-        Example
-        -------
-        >>> system_optimized, result = Processor.compute_transfer_function(input_signal, output_signal, time, order=(1, 2))
-
-        """
-        input_signal, output_signal, time = map(Processor.dask_to_numpy, [input_signal, output_signal, time])
-
-        # Ensure uniform time intervals
-        if np.max(np.diff(time)) != np.min(np.diff(time)):
-            time = np.linspace(np.min(time), np.max(time), len(time))
-            # input_signal = np.interp(time, Processor.prepare_data(time), input_signal)
-            # output_signal = np.interp(time, Processor.prepare_data(time), output_signal)
-
-        num_order, den_order = order
-        if initial_params is None:
-            initial_params = np.ones(num_order + den_order + 1)
-
-        params_optimized = Processor.fit_scipy_minimize(num_order, den_order,
-                                                        initial_params,
-                                                        input_signal,
-                                                        output_signal,
-                                                        time)
-
-        num_optimized = params_optimized[:num_order + 1]
-        den_optimized = np.concatenate(([1.], params_optimized[num_order + 1:]))
-        system_optimized = spy.signal.TransferFunction(num_optimized, den_optimized)
-
-        # Check stability
-        is_stable = np.all(np.real(np.roots(den_optimized)) < 0)
-
-        # Compute frequency response
-        if freq_range:
-            w = np.logspace(np.log10(freq_range[0]), np.log10(freq_range[1]),
-                            num=1000)
-        else:
-            w = None
-
-        # Correctly compute Bode plot for continuous-time transfer function
-        if system_optimized.dt is None:
-            w, mag, phase = spy.signal.bode(system_optimized, w=w)
-        else:
-            w, mag, phase = spy.signal.dlti(system_optimized).bode(w=w)
-
-        # Compute additional frequency response plots
-        w, h = spy.signal.freqs(num_optimized, den_optimized, w)
-
-        result_dict = {
-            'frequencies': w,
-            'magnitude': mag,
-            'phase': phase,
-            'is_stable': is_stable,
-            'nyquist': h,
-            'coherence': np.corrcoef(input_signal, output_signal)[0, 1],
-            'params': params_optimized,
-            'method': method,
-            'order': order
-        }
-
-        return system_optimized, result_dict
-
-    @staticmethod
-    def dask_to_numpy(input):
-        """
-        Convert a Dask array or any array-like input to a NumPy array.
-
-        Parameters
-        ----------
-        input : dask.array.Array or array-like
-            The input data to convert. If it's a Dask array, it will be computed and converted to a NumPy array.
-            If it's already a NumPy array or similar, it will be converted to a NumPy array without additional computation.
-
-        Returns
-        -------
-        numpy.ndarray
-            The converted NumPy array.
-
-        Example
-        -------
-        >>> import dask.array as da
-        >>> dask_array = da.from_array(np.array([1, 2, 3]), chunks=1)
-        >>> numpy_array = Processor.dask_to_numpy(dask_array)
-        >>> print(numpy_array)
-        [1 2 3]
-
-        """
-        if isinstance(input, da.Array):
-            return input.compute()
-        return np.asarray(input)
-
-    @staticmethod
-    def fit_scipy_minimize(num_order, den_order, initial_params, input_signal,
-                           output_signal, time):
-        """
-        Fit a transfer function to data using SciPy's minimize function.
-
-        Parameters
-        ----------
-        num_order : int
-            The order of the numerator polynomial of the transfer function.
-
-        den_order : int
-            The order of the denominator polynomial of the transfer function.
-
-        initial_params : array-like
-            Initial guess for the parameters of the transfer function. This should be a 1D array where
-            the first `num_order + 1` elements are the numerator coefficients and the remaining elements
-            are the denominator coefficients (excluding the leading 1 which is implicitly part of the denominator).
-
-        input_signal : array-like
-            The input signal data used for fitting the transfer function.
-
-        output_signal : array-like
-            The output signal data used for fitting the transfer function. This is compared to the response of
-            the transfer function to the `input_signal`.
-
-        time : array-like
-            The time vector corresponding to the `input_signal` and `output_signal`.
-
-        Returns
-        -------
-        numpy.ndarray
-            The optimized parameters of the transfer function. This array contains the numerator coefficients
-            followed by the denominator coefficients (excluding the leading 1).
-
-        Example
-        -------
-        >>> num_order = 2
-        >>> den_order = 2
-        >>> initial_params = np.array([1, 1, 1, 1])
-        >>> input_signal = np.array([0, 1, 2, 3])
-        >>> output_signal = np.array([0, 0.9, 1.8, 2.7])
-        >>> time = np.array([0, 1, 2, 3])
-        >>> optimized_params = Processor.fit_scipy_minimize(num_order, den_order, initial_params, input_signal, output_signal, time)
-        >>> print(optimized_params)
-        [0.9 0.8 1.1 0.7]
-        """
-
-        """ Fit the transfer function using scipy's minimize. """
-        def fit_transfer_function(params):
-            num = params[:num_order + 1]
-            den = np.concatenate(([1.], params[num_order + 1:]))
-            system = spy.signal.TransferFunction(num, den)
-            _, yout, _ = spy.signal.lsim(system, U=input_signal, T=time)
-            return np.sum((yout - output_signal) ** 2)
-
-        result = spy.optimize.minimize(fit_transfer_function, initial_params,
-                          method='Nelder-Mead')
-        return result.x
     
     def __detect_peaks(self, signal, **kwargs):
         """
@@ -1518,6 +1329,34 @@ class Processor(SharedMethods):
         if isinstance(input, np.ndarray):
             return da.from_array(input, chunks=chunk_size)
         return input
+    
+    def __dask_to_numpy(self, input):
+        """
+        Convert a Dask array or any array-like input to a NumPy array.
+
+        Parameters
+        ----------
+        input : dask.array.Array or array-like
+            The input data to convert. If it's a Dask array, it will be computed and converted to a NumPy array.
+            If it's already a NumPy array or similar, it will be converted to a NumPy array without additional computation.
+
+        Returns
+        -------
+        numpy.ndarray
+            The converted NumPy array.
+
+        Example
+        -------
+        >>> import dask.array as da
+        >>> dask_array = da.from_array(np.array([1, 2, 3]), chunks=1)
+        >>> numpy_array = Processor.dask_to_numpy(dask_array)
+        >>> print(numpy_array)
+        [1 2 3]
+
+        """
+        if isinstance(input, da.Array):
+            return input.compute()
+        return np.asarray(input)
 
     def __rechunk(self, input, chunk_size="auto"):
         """
