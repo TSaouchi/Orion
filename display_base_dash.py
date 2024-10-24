@@ -301,19 +301,20 @@ if __name__ == '__main__':
             for instant in instants:
                 for var in var1:
                     base[zone][instant].add_variable(var, 
-                                                     da.random.random(n, 1)
+                                                     np.sin(da.random.random(n, 1))
                                                      )
         for zone in zones[2:3]:
             for instant in instants:
                 for var in var2:
                     base[zone][instant].add_variable(var, 
-                                                     da.random.random(n, 1)
+                                                     np.cos(da.random.random(n, 1))
                                                      )
         for zone in zones[3:5]:
             for instant in instants:
                 for var in var3:
                     base[zone][instant].add_variable(var, 
-                                                     da.random.random(n, 1)
+                                                     np.sin(da.random.random(n, 1))*\
+                                                         np.cos(da.random.random(n, 1))
                                                      )
         return base
     data = generate_sample_data()
