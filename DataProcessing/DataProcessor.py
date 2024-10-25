@@ -103,8 +103,8 @@ class Processor(SharedMethods):
         """
         bases = deque(self.base)
         pivot_base = bases.popleft()
-
-        for base in bases:
+        if Verbose: self.print_text("info", "\nFusion bases")
+        for base in self.tqdm_wrapper(bases, desc="Base", verbose=Verbose):
             for n, (zone, instant) in enumerate(base.items()):
 
                 if zone not in pivot_base.keys():
@@ -202,8 +202,8 @@ class Processor(SharedMethods):
 
         fft_base = Orion.Base()
         fft_base.add_zone(list(self.base.keys()))
-
-        for zone, instant in self.base.items():
+        if Verbose: self.print_text("info", "\nCompute Fast Fourier Transform")
+        for zone, instant in self.tqdm_wrapper(self.base.items(), desc="Zone", verbose=Verbose):
             fft_base[zone].add_instant(instant)
 
             # Compute the sampling frequency for each variable fs = 1/dt
@@ -307,7 +307,8 @@ class Processor(SharedMethods):
         psd_base = Orion.Base()
         psd_base.add_zone(list(self.base.keys()))
 
-        for zone, instant in self.base.items():
+        if Verbose: self.print_text("info", "\nCompute Powers Spectral Density")
+        for zone, instant in self.tqdm_wrapper(self.base.items(), desc="Zone", verbose=Verbose):
             psd_base[zone].add_instant(instant)
 
            # Compute the sampling frequency for each variable fs = 1/dt
@@ -419,7 +420,7 @@ class Processor(SharedMethods):
         >>> smoothed_data = base.filter(filter_type='savitzky_golay', window_length=51, polyorder=3)
         >>> denoised_data = base.filter(filter_type='median', kernel_size=11)
         """
-        
+        if Verbose: self.print_text("info", "\nFilter base")
         invariant_variables = kwargs.get("invariant_variables", 
                                          Orion.DEFAULT_TIME_NAME + 
                                          Orion.DEFAULT_FREQUENCY_NAME)
@@ -486,7 +487,7 @@ class Processor(SharedMethods):
             kernel_size = filter_params
 
         filter_base = copy.deepcopy(self.base)
-        for zone, instant in self.base.items():
+        for zone, instant in self.tqdm_wrapper(self.base.items(), desc="Zone", verbose=Verbose):
             for variable_name, variable_obj in self.base[zone][instant].items():
                 if variable_name not in invariant_variables:
                     filtered_data = apply_filter_to_data(variable_obj)
@@ -515,7 +516,8 @@ class Processor(SharedMethods):
         """
         reduce_base = Orion.Base()
         reduce_base.add_zone(list(self.base.keys()))
-        for zone, instant in self.base.items():
+        if Verbose: self.print_text("info", "\nReduce base")
+        for zone, instant in self.tqdm_wrapper(self.base.items(), desc="Zone", verbose=Verbose):
             reduce_base[zone].add_instant(instant)
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
                 reduce_base[zone][instant].add_variable(variable_name,
@@ -549,8 +551,9 @@ class Processor(SharedMethods):
         -------
         >>> normalized_base = base.normalization(type='minmax')
         """
+        if Verbose: self.print_text("info", "\nBase normalization")
         normalize_base = copy.deepcopy(self.base)
-        for zone, instant in self.base.items():
+        for zone, instant in self.tqdm_wrapper(self.base.items(), desc="Zone", verbose=Verbose):
             normalize_base[zone].add_instant(instant)
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
                 
@@ -605,13 +608,14 @@ class Processor(SharedMethods):
         -------
         >>> gradient_result = base.gradient(edge_order=2, axis=0, invariant_variables="time")
         """
+        if Verbose: self.print_text("info", "\nComputing gradient")
         invariant_variables = kwargs.get("invariant_variables", None)
         
         edge_order = 2 if not edge_order else edge_order
         
         gradient_base = copy.deepcopy(self.base)
         
-        for zone, instant in self.base.items():
+        for zone, instant in self.tqdm_wrapper(self.base.items(), desc="Zone", verbose=Verbose):
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
                 if invariant_variables: 
                     if variable_name == invariant_variables: continue
@@ -667,11 +671,11 @@ class Processor(SharedMethods):
         >>> peak_base = processor(base).peak(dependent_variables=['TimeValue'], 
         height=0.5, distance=2)
         """
-                
+        if Verbose: self.print_text("info", "\nPeak detection")
         peak_base = Orion.Base()
         peak_base.add_zone(list(self.base.keys()))
         base_variable = self.variables_location(self.base)
-        for zone, instant in self.base.items():
+        for zone, instant in self.tqdm_wrapper(self.base.items(), desc="Zone", verbose=Verbose):
             peak_base[zone].add_instant(instant)
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
                 try:
@@ -746,7 +750,8 @@ class Processor(SharedMethods):
             raise
 
         clamp_base = copy.deepcopy(self.base)
-        for zone, instant in self.base.items():
+        if Verbose: self.print_text("info", "\nClamp base values")
+        for zone, instant in self.tqdm_wrapper(self.base.items(), desc="Zone", verbose=Verbose):
             if target_variable not in self.base[zone][instant].keys():
                 continue
             
@@ -791,7 +796,8 @@ class Processor(SharedMethods):
 
         detrend_base = Orion.Base()
         detrend_base.add_zone(list(self.base.keys()))
-        for zone, instant in self.base.items():
+        if Verbose: self.print_text("info", "\nBase values detrending")
+        for zone, instant in self.tqdm_wrapper(self.base.items(), desc="Zone", verbose=Verbose):
             detrend_base[zone].add_instant(instant)
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
                 if variable_name in invariant_variables:
@@ -844,7 +850,8 @@ class Processor(SharedMethods):
 
         smooth_base = Orion.Base()
         smooth_base.add_zone(list(self.base.keys()))
-        for zone, instant in self.base.items():
+        if Verbose: self.print_text("info", "\nBase values smoothing")
+        for zone, instant in self.tqdm_wrapper(self.base.items(), desc="Zone", verbose=Verbose):
             smooth_base[zone].add_instant(instant)
             for variable_name, variable_obj in list(self.base[zone][instant].items()):
                 if variable_name not in invariant_variables:
@@ -909,9 +916,10 @@ class Processor(SharedMethods):
             self.print_text("error", "Predictor variable is not in the base variable (it has to be present in all instants)")
             raise KeyError
 
+        if Verbose: self.print_text("info", "\nPerform linear regression")
         linear_base = Orion.Base()
         linear_base.add_zone(list(self.base.keys()))
-        for zone, instant in self.base.items():
+        for zone, instant in self.tqdm_wrapper(self.base.items(), desc="Zone", verbose=Verbose):
 
             if independent_variable_name[0] not in self.base[zone][instant].keys():
                 continue

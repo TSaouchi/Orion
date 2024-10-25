@@ -1,41 +1,31 @@
-# Path and Char manipulation
+### Path and Char manipulation
 import os
+import time
 
-# Math
+### Math
 import numpy as np
+import copy
 import scipy as spy
 
-# Orion
 import Core as Orion
 from DataProcessor import Processor
+from Utils import *
 
 if __name__ == "__main__":
     # ========================= Cases configuration ============================
-    cases = {
-        "Zones" : [
-            "",
-            ],
-        "Paths" : [
-            "",
-        ],
-        "file_name_patterns" : [
-            "",
-            ],
-        "Variables": [
-            [""],
-        ]
-    }
-
     # ============================== Read inputs ===============================
-    Reader = Orion.Reader
-    base = []
+    base = Orion.Base()
     
-    for nzone, zone in enumerate(cases["Zones"]):
-        base.append(Reader(
-            cases["Paths"][nzone], 
-            cases["file_name_patterns"][nzone]).read_ascii(
-                variables = cases["Variables"][nzone], 
-                zone_name = [zone]))
-
-    base = Processor(base).fusion()
-    ## ============================= Data manipulation ==========================
+    nzone = 5
+    ninstant = 5
+    nvar = 10
+    n = 1e2
+    
+    zones = [f"Zone_{i}" for i in range(nzone)]
+    instants = [f"Instant_{i}" for i in range(ninstant)]
+    var1 = [f"var_{i}" for i in range(0, nvar)]
+    var1_value = nvar*[da.random.random(n, chunks = 'auto')] 
+    base.init(zones, instants, var1, var1_value)
+    
+    plotter = Orion.Plotter(base)
+    plotter.run()

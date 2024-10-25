@@ -546,6 +546,7 @@ class Base(CustomAttributes):
         >>> base.init(zones=zones, instants=instants, variables_names=variables_names, 
                     variables_values=variables_values)
         """
+        if verbose: self.print_text("info", "\nBase items initialization")
         if (variables_names is None and variables_values is not None) or \
             (variables_names is not None and variables_values is None):
                 self.print_text("error", "Both variables names and values must be provide")
@@ -626,6 +627,7 @@ class Base(CustomAttributes):
         >>> variables_values = [100, 200]
         >>> base.add(zones, instants, variables_names, variables_values, override=True)
         """
+        if verbose: self.print_text("info", "\nAdd items to base")
         if variables_values is not None and len(variables_values) != len(variables_names):
             raise ValueError("Length of variable_data must match the number of variables")
 
