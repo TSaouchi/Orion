@@ -134,6 +134,7 @@ from .Base import *
 from .Reader import *
 from .Writer import *
 from .Ploter import *
+from .PlotterDash import *
 from .ScriptParser import *
 from .Formulas import *
 from .SharedMethods import *
