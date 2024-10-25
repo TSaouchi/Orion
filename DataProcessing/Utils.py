@@ -1,4 +1,7 @@
 import numpy as np
+from scipy import stats
+import dask.array as da
+from dask.array import stats as dask_stats
 
 def merge_points(data, axis=0, threshold=1e-5, aggregation_method='first'):
 
@@ -106,3 +109,70 @@ def get_closest_points(data, target_value=1, n_return_points=5, axis=0,
     
     # Return the points sorted according to the specified axis values
     return closest_points[sorted_indices]
+
+def compute_stats(x):
+    """
+    Compute descriptive statistics for a given Dask or NumPy array efficiently.
+
+    This function computes key statistics such as count, min, max, mean, variance, skewness, and kurtosis for a given 
+    input array. The computation leverages Dask's lazy evaluation for efficiency when handling large arrays, ensuring 
+    that only necessary parts of the array are computed in memory.
+
+    Parameters
+    ----------
+    x : dask.array.Array or numpy.ndarray
+        Input array for which to compute the statistics. If a Dask array is passed, the computation is done lazily to 
+        handle large datasets without loading the entire array into memory. If a NumPy array is passed, it will be 
+        computed directly.
+
+    Returns
+    -------
+    stats_names : list
+        List of strings representing the names of the computed statistics.
+        These include 'count', 'min', 'max', 'mean', 'variance', 'skewness', and 'kurtosis'.
+    stats_values : list
+        List of computed values corresponding to the statistics in `stats_names`.
+        These include the number of observations, minimum, maximum, mean, variance, skewness, and kurtosis, all returned 
+        as regular Python floats.
+
+    Example
+    -------
+    .. code-block:: python
+
+        import dask.array as da
+        from scipy import stats
+
+        # For small data using NumPy
+        data = np.array([1, 2, 3, 4, 5])
+        stats_names, stats_values = compute_stats(data)
+        print(stats_names, stats_values)
+        
+        # For large data using Dask
+        dask_data = da.random.random(size=(10000,), chunks=(1000,))
+        stats_names, stats_values = compute_stats(dask_data)
+        print(stats_names, stats_values)
+
+    Example Usage
+    -------------
+    >>> import dask.array as da
+    >>> data = da.random.random(size=(10000,), chunks=(1000,))
+    >>> stats_names, stats_values = compute_stats(data)
+    >>> print(stats_names, stats_values)
+    """
+  
+    count = x.size
+    min_val = x.min()
+    max_val = x.max()
+    mean_val = x.mean()
+    variance_val = x.var(ddof=1)  # ddof=1 for sample variance, like scipy's describe
+    skewness_val = dask_stats.skew(x)
+    kurtosis_val = dask_stats.kurtosis(x)
+    
+    # Compute only the statistics, not the entire array
+    computed_stats = da.compute(count, min_val, max_val, mean_val, variance_val, skewness_val, kurtosis_val)
+    
+    # Define names and values of the statistics
+    stats_names = ['count', 'min', 'max', 'mean', 'variance', 'skewness', 'kurtosis']
+    stats_values = [float(s) for s in computed_stats]  # Ensure all are regular floats
+    
+    return stats_names, stats_values

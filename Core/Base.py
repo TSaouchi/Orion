@@ -151,7 +151,25 @@ class Instants(CustomAttributes):
         Initialize the Instants object with an empty set of variables.
         """
         super().__init__()
-        self.variables = OrderedDict() 
+        self.variables = OrderedDict()
+    
+    def get(self, name = None, default = None):
+        """
+        Get the value of a variable.
+
+        Parameters
+        ----------
+        name : str
+            The name of the attribute.
+        default : Any, optional
+            The default value to return if the attribute is not found.
+
+        Returns
+        -------
+        Any
+            The value of the variable, or the default value if not found.
+        """
+        return self.variables.get(name, default)
 
     def add_variable(self, name, data):
         """
