@@ -1,6 +1,7 @@
 import numpy as np
 import dash
-from dash import dcc, html, dash_table
+from dash import dcc, html, dash_table, clientside_callback
+import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output
 from flask_caching import Cache
 import plotly.graph_objs as go
@@ -12,7 +13,7 @@ from Utils import compute_stats
 class Plotter:
     def __init__(self, base):
         self.base = base
-        self.app = dash.Dash(__name__)
+        self.app = dash.Dash(__name__, external_stylesheets=[dbc.themes.LUX])
         self.cache = Cache(self.app.server, config={
             'CACHE_TYPE': 'filesystem',
             'CACHE_DIR': 'cache-directory',
@@ -32,7 +33,7 @@ class Plotter:
             html.Div(id='stats-table'),
             # Looding bar (not working!!)
             dcc.Loading(id="loading-1", 
-                        type="default", children=html.Div(id="loading-output-1"))
+                        type="default", children=html.Div(id="loading-output-1")),
         ])
 
     def create_dropdowns(self):
@@ -240,7 +241,12 @@ class Plotter:
         return dash_table.DataTable(
             columns=[{'name': col, 'id': col} for col in stats_df.columns],
             data=stats_df.to_dict('records'),
-            style_table={'overflowX': 'scroll'}
+            row_selectable="single",
+            row_deletable=True,
+            editable=True,
+            filter_action="native",
+            sort_action="native",
+            style_table={"overflowX": "auto"},
         )
     
     def setup_callbacks(self):
