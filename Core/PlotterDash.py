@@ -1,6 +1,6 @@
 import numpy as np
 import dash
-from dash import dcc, html, dash_table, clientside_callback
+from dash import dcc, html, dash_table
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output
 from flask_caching import Cache
