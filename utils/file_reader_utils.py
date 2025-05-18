@@ -36,7 +36,7 @@ class YAMLReaderStrategy(ReaderStrategy):
 class INIReaderStrategy(ReaderStrategy):
     def read(self, file_path: str) -> dict:
         try:
-            config = configparser.ConfigParser()
+            config = configparser.ConfigParser(comment_prefixes=(';', '#'))
             config.read(file_path, encoding='utf-8')
             # Convert to dictionary
             return {section: dict(config[section]) for section in config.sections()}
@@ -71,7 +71,7 @@ class FileReader:
     """
     Main class that determines the appropriate strategy and reads the file
     """
-    
+
     # Map file extensions to reader strategies
     _strategies = {
         '.json': JSONReaderStrategy(),
@@ -83,27 +83,27 @@ class FileReader:
         '.csv': CSVReaderStrategy(),
         '.dat': DATReaderStrategy(),
     }
-    
+
     def __init__(self, file_path: str):
         """
         Initialize with the path to the file to be read
         """
         self.file_path = file_path
         self._strategy = self._get_strategy()
-    
+
     def _get_strategy(self) -> ReaderStrategy:
         """Determine the appropriate reader strategy based on file extension"""
         if not os.path.exists(self.file_path):
             raise FileNotFoundError(f"File not found: {self.file_path}")
-        
+
         _, ext = os.path.splitext(self.file_path)
-        
+
         if ext in self._strategies:
             return self._strategies[ext.lower()]
         else:
             # Default to binary reader for unknown extensions
             return BinaryReaderStrategy()
-    
+
     def read(self):
         """
         Read and parse the file using the appropriate strategy
@@ -112,7 +112,7 @@ class FileReader:
             return self._strategy.read(self.file_path)
         except Exception as e:
             raise RuntimeError(f"Error reading file '{self.file_path}': {str(e)}")
-    
+
     @classmethod
     def register_strategy(cls, extension: str, strategy: ReaderStrategy) -> None:
         """

@@ -15,7 +15,7 @@ def payloads(symbol, apis_config: dict, cypher: Cypher):
             "function": "TIME_SERIES_DAILY",
             "symbol": symbol,
             "interval": "1d",
-            "apikey": cypher.decrypt(apis_config["alpha_vantage"]["api_key"])
+            "apikey": cypher.decrypt(apis_config["alpha_vantage"]["apikey"])
             }
         },
         {"client_name" : "twelve_data",
@@ -25,18 +25,17 @@ def payloads(symbol, apis_config: dict, cypher: Cypher):
             "function": "TIME_SERIES_DAILY",
             "symbol": symbol,
             "interval": "1day",
-            "apikey": cypher.decrypt(apis_config["twelve_data"]["api_key"])
+            "apikey": cypher.decrypt(apis_config["twelve_data"]["apikey"])
             }
-        }
-    ]
+        }]
 
 def fetch(api_manger: ApiManager, payload):
     return api_manger.execute(**payload)
 
 async def main():
     api_manger = ApiManager()
-    config_path = Path(__file__).parent / "conf" / "config.json"
-    apis_config =  FileReader(config_path).read()["apis"]
+    config_path = Path(__file__).parent / "conf/config.json"
+    apis_config = FileReader(config_path).read()["apis"]
     cypher_key = os.environ.get("cypher_key")
     cypher = Cypher(cypher_key)
 
@@ -50,7 +49,8 @@ async def main():
     all_payloads = [payloads(symbol, apis_config, cypher)[1] for symbol in symbols]
     tasks = [fetch(api_manger, paylod) for paylod in all_payloads]
     response = await asyncio.gather(*tasks)
-    print(response)
+    from pprint import pprint 
+    pprint(response)
         
 if __name__ == "__main__":
     asyncio.run(main())
