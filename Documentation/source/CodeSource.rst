@@ -3,7 +3,7 @@
 Classes and Methods
 ===================
 
-Orion Core
+Orion core
 ----------
 
 Base.py
@@ -73,7 +73,7 @@ SharedMethods.py
 Orion data processing
 ---------------------
 
-.. automodule:: DataProcessor
+.. automodule:: processor
    :members:
    :undoc-members:
    :show-inheritance:

@@ -9,7 +9,7 @@ sys.path.append(parent_dir)
 import numpy as np
 import dask.array as da
 
-import Core as Orion
+import core as Orion
 from Debug import PerformanceStats
 
 if __name__ == "__main__":

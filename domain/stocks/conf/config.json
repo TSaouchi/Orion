@@ -1,0 +1,36 @@
+{
+  
+  "apis": {
+    "alpha_vantage": {
+      "base_url" : "https://www.alphavantage.co",
+      "api_key": "QoAVGAerk/mBuykucXRdHQtFMR/byWnvd6NcfyEnMlesfpP3HhwXCjABLmwQeIbk",
+      "default" : {
+        "endpoint" : "query",
+        "params" : {
+            "function": "TIME_SERIES_DAILY",
+            "interval": "1d"
+        }
+      }
+    },
+
+    "twelve_data": {
+      "base_url" : "https://api.twelvedata.com",
+      "api_key": "8hupbvn3mZtwMHgxuPNTqDQCjZdFCN8y0r98uGv5VAS5CEPySByBzXnjf3q9cg9ne5KLYGOrGNA34d+b3Fdqzw==",
+      "default" : {
+        "endpoint" : "time_series",
+        "params" : {
+            "function": "TIME_SERIES_DAILY",
+            "interval": "1day"
+        }
+      }
+    }
+
+  },
+
+  "datebase" : {
+    "local" : {
+      "db_name" : "stocks"
+    }
+  }
+
+}

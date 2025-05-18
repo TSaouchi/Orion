@@ -29,7 +29,7 @@ from scipy.signal import (
                           )
 
 # Orion
-import Core as Orion
+import core as Orion
 from SharedMethods import SharedMethods
 
 # Message mode

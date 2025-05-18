@@ -107,7 +107,7 @@ Work directory tree
                      </ul>
                   </li>
                   Orion core features
-                  <li><i class="fa fa-folder-open"></i> Core
+                  <li><i class="fa fa-folder-open"></i> core
                      <ul>
                         <li><i class="fa fa-file-code-o"></i> Base.py</li>
                         <li><i class="fa fa-file-code-o"></i> Debug.py</li>
@@ -120,16 +120,16 @@ Work directory tree
                      </ul>
                   </li>
                   Orion data processing methods
-                  <li><i class="fa fa-folder-open"></i> DataProcessing
+                  <li><i class="fa fa-folder-open"></i> core-processing
                      <ul>
-                        <li><i class="fa fa-file-code-o"></i> DataProcessor.py</li>
-                        <li><i class="fa fa-file-code-o"></i> Utils.py</li>
+                        <li><i class="fa fa-file-code-o"></i> processor.py</li>
+                        <li><i class="fa fa-file-code-o"></i> utils.py</li>
                      </ul>
                   </li>
                   Sphinx module
-                  <li><i class="fa fa-folder"></i> Documentation</li>
+                  <li><i class="fa fa-folder"></i> documentation</li>
                   Orion's test units
-                  <li><i class="fa fa-folder-open"></i> Test
+                  <li><i class="fa fa-folder-open"></i> test
                      <ul>
                         <li><i class="fa fa-file-code-o"></i> test_base.py</li>
                         <li><i class="fa fa-file-code-o"></i> test_reader.py</li>

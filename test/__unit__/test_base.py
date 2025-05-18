@@ -2,7 +2,7 @@ import unittest
 from io import StringIO
 import numpy as np
 import dask.array as da
-import Core as Orion
+import core as Orion
 
 class TestCustomAttributes(unittest.TestCase):
     def test_set_get_attribute(self):

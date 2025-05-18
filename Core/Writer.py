@@ -13,7 +13,7 @@ import io
 import csv
 import h5py as hdf
 
-from SharedMethods import SharedMethods
+from core.SharedMethods import SharedMethods
 
 # Message mode
 import warnings

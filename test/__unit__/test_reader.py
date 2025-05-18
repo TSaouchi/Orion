@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import os
 
-from Core.Reader import Reader
+from core.Reader import Reader
 
 class TestReader(unittest.TestCase):
 

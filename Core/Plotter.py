@@ -3,7 +3,7 @@ import os
 import colorsys
 import math
 
-from SharedMethods import SharedMethods
+from core.SharedMethods import SharedMethods
 
 # Message mode
 import warnings

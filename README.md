@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="Documentation/source/_static/logo/orion_logo.png" alt="Orion" width="200" />
+  <img src="documentation/source/_static/logo/orion_logo.png" alt="Orion" width="200" />
 </p>
 
 [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg "Apache License, Version 2.0.")](LICENSE)
@@ -95,8 +95,8 @@ The project documentation is generated using [Sphinx](https://www.sphinx-doc.org
 ```python
 import numpy as np
 
-import Core as Orion
-from DataProcessor import Processor
+import core as Orion
+from processor import Processor
 
 # Initialize the base object
 base = Orion.Base()

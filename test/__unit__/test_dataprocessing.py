@@ -3,8 +3,8 @@ import numpy as np
 import dask.array as da
 from unittest.mock import patch, MagicMock
 
-import Core as Orion
-from DataProcessor import Processor
+import core as Orion
+from processor import Processor
 
 class TestProcessor(unittest.TestCase):
 

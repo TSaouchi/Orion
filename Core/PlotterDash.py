@@ -8,7 +8,7 @@ import plotly.graph_objs as go
 import pandas as pd
 import time
 
-from Utils import compute_stats
+from core_processing.utils import compute_stats
 
 class Plotter:
     def __init__(self, base):
@@ -288,7 +288,7 @@ class Plotter:
 
 if __name__ == '__main__':
     
-    import Core as Orion
+    import core as Orion
     import dask.array as da
     def generate_sample_data():
         base = Orion.Base()

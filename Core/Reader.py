@@ -19,8 +19,8 @@ import csv
 import h5py as hdf
 
 # Orion
-import Core as Orion
-from SharedMethods import SharedMethods
+import core as Orion
+from core.SharedMethods import SharedMethods
 
 # Message mode
 import warnings

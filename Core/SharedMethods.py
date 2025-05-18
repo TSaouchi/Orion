@@ -7,7 +7,7 @@ from tqdm import tqdm
 # Data processing
 import numpy as np
 
-from Core import DEFAULT_VAR_SYNONYMS
+from core import DEFAULT_VAR_SYNONYMS
 
 class SharedMethods():
     def __init__(self):

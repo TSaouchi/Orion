@@ -9,8 +9,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from concurrent.futures import ThreadPoolExecutor
 
 # Orion parameters
-from Core import DEFAULT_ZONE_NAME, DEFAULT_INSTANT_NAME, DEFAULT_VERBOSE
-from SharedMethods import SharedMethods
+from core import DEFAULT_ZONE_NAME, DEFAULT_INSTANT_NAME, DEFAULT_VERBOSE
+from core.SharedMethods import SharedMethods
 
 class CustomAttributes(SharedMethods):
     """

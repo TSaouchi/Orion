@@ -8,11 +8,11 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../../'))
-sys.path.insert(0, os.path.abspath('../../Core'))
+sys.path.insert(0, os.path.abspath('../../core'))
 sys.path.insert(0, os.path.abspath('../../DataProcessing'))
 sys.path.insert(0, os.path.abspath('../../SystemSimulation'))
-sys.path.insert(0, os.path.abspath('../../Test'))
-import Core as Orion
+sys.path.insert(0, os.path.abspath('../../test'))
+import core as Orion
 
 
 project = Orion.__title__

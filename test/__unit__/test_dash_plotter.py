@@ -5,7 +5,7 @@ from dash import html
 import plotly.graph_objs as go
 import pandas as pd
 from unittest.mock import patch
-import Core as Orion
+import core as Orion
 
 # Import the classes we want to test
 from PlotterDash import Plotter

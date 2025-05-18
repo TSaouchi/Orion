@@ -5,7 +5,7 @@ import os
 import ast
 
 # Orion
-import Core as Orion
+import core as Orion
 
 class Parser:
     """

@@ -12,7 +12,7 @@ import threading
 import logging
 
 # Orion
-import Core as Orion
+import core as Orion
 from SharedMethods import SharedMethods
 
 # Debug script manually
