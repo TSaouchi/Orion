@@ -1,5 +1,5 @@
 <p align="center">
-  <strong style="font-size: 24px; color: red;">🚧 Work in Progress 🚧</strong>
+  <strong style="font-size: 24px; color: red;">🚧 Legacy embedded system for use on HPC — THE END 🚧</strong>
 </p>
 
 <p align="center">
